@@ -70,6 +70,7 @@ flowchart TD
     V --> W[Atualizar LEDs]
     W --> R
 ```
+
 ### High-level block view
 
 ```mermaid
