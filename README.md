@@ -35,125 +35,88 @@ The firmware is designed around a simple operation model:
 
 ### Boot and Connection Flow
 
-```
-Power On
-   ↓
-Initialize GPIO / RGB LED / Serial
-   ↓
-Boot Animation (RGB sequence)
-   ↓
-Read Credentials from NVS Preferences
-   ↓
-   ├─→ Credentials Found?
-   │   ├─→ YES: WiFi.begin(ssid, password)
-   │   │        Attempt connection (max 20 retries)
-   │   │        ↓
-   │   │        Connected?
-   │   │        ├─→ YES: Enable UDP socket on port 4210
-   │   │        │        Sync time via NTP
-   │   │        │        Enter normal runtime (command listening)
-   │   │        │
-   │   │        └─→ NO: Return to AP mode
-   │   │
-   │   └─→ NO: Start Access Point (M5NANOC6_CONFIG)
-   │          Serve HTML configuration page
-   │          Wait for POST /salvar
-   │          Store SSID/password in NVS
-   │          Restart ESP32
-   │
-Normal Runtime
-   ↓
-Receive UDP packets on port 4210
-   ↓
-Parse command string
-   ↓
-Execute action (LED, diagnostics, status, reset)
-   ↓
-Reply to client via UDP
-   ↓
-Check reset button (GPIO 9)
-   ↓
-Check LED blink state and update
-```
+```mermaid
+flowchart TD
+    A[Power On] --> B[Inicializar GPIO RGB e Serial]
+    B --> C[Boot Animation]
+    C --> D[Ler Credenciais NVS]
 
+    D --> E{Credenciais Encontradas?}
+
+    E -->|Sim| F[WiFi.begin]
+    F --> G[Tentar Conexao ate 20 vezes]
+
+    G --> H{Conectou?}
+
+    H -->|Sim| I[Iniciar UDP Porta 4210]
+    I --> J[Sincronizar NTP]
+    J --> K[Modo Normal]
+
+    H -->|Nao| L[Entrar em Modo AP]
+
+    E -->|Nao| L
+
+    L --> M[Criar AP M5NANOC6_CONFIG]
+    M --> N[Servidor Web]
+    N --> O[Receber POST salvar]
+    O --> P[Gravar SSID e Senha]
+    P --> Q[Reiniciar ESP32]
+
+    K --> R[Receber Pacotes UDP]
+    R --> S[Interpretar Comando]
+    S --> T[Executar Acao]
+    T --> U[Responder UDP]
+    U --> V[Verificar Botao Reset]
+    V --> W[Atualizar LEDs]
+    W --> R
+```
 ### High-level block view
 
-```text
-+-----------------------------------------------------------+
-|                     M5NanoC6 Device                       |
-|                                                           |
-|  +-------------------+   +------------------------------+ |
-|  | ESP32 Core        |   | Wi-Fi / Web Server           | |
-|  | - boot            |   | - STA client mode            | |
-|  | - GPIO control    |   | - AP config portal           | |
-|  | - UDP parser      |   | - Preferences/NVS           | |
-|  +-------------------+   +------------------------------+ |
-|                             |                             |
-|  +-------------------+       |       +-------------------+ |
-|  | RGB Indicator     |       |       | Reset Button      | |
-|  | (NeoPixel)        |       |       | + GPIO 9          | |
-|  +-------------------+       |       +-------------------+ |
-|                             |                             |
-|  +-------------------+       +------------------------------+ |
-|  | UDP Commands      |         Status LED / GPIO 7          |
-|  | - LED_ON          |                                      |
-|  | - TEMP            |                                      |
-|  | - NET_INFO        |                                      |
-|  | - TIME            |                                      |
-|  | - RESET_WIFI      |                                      |
-|  +-------------------+                                      |
-+-----------------------------------------------------------+
+```mermaid
+flowchart LR
+
+    ESP[ESP32 Core]
+    WIFI[WiFi Web Server]
+    RGB[RGB Indicator NeoPixel]
+    RESET[Reset Button GPIO9]
+    UDP[UDP Commands]
+    LED[Status LED GPIO7]
+
+    ESP --> WIFI
+    ESP --> RGB
+    ESP --> RESET
+    ESP --> UDP
+    ESP --> LED
+
+    UDP --> CMD1[LED_ON]
+    UDP --> CMD2[TEMP]
+    UDP --> CMD3[NET_INFO]
+    UDP --> CMD4[TIME]
+    UDP --> CMD5[RESET_WIFI]
 ```
 
 ### Component Interaction Diagram
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                    M5NanoC6 System                      │
-│                                                         │
-│  ┌────────────┐         ┌──────────────┐               │
-│  │   Setup    │────────>│ GPIO Init    │               │
-│  │   Phase    │         │ LED Init     │               │
-│  └────────────┘         │ Serial Init  │               │
-│       │                 └──────────────┘               │
-│       └────────────────────────┬───────────────────────┤
-│                               │                         │
-│  ┌──────────────────────┐     │                         │
-│  │  Preferences (NVS)   │<────┤                         │
-│  │  Read wifi.ssid      │     │                         │
-│  │  Read wifi.senha     │     │                         │
-│  └──────────────────────┘     │                         │
-│       │                       │                         │
-│       ├─ Credentials OK       │                         │
-│       │  └────────────────────┴─>  WiFi.begin()       │
-│       │                            WiFi.connect()      │
-│       │                            ↓                   │
-│       │                    ┌────────────────┐          │
-│       │                    │ UDP Ready Port │          │
-│       │                    │     4210       │          │
-│       │                    └────────────────┘          │
-│       │                            ↓                   │
-│       │                    ┌────────────────┐          │
-│       │                    │   NTP Sync     │          │
-│       │                    │  Get Local Time│          │
-│       │                    └────────────────┘          │
-│       │                                                 │
-│       └─ No Credentials                                │
-│          └───────────> WiFi.softAP() M5NANOC6_CONFIG  │
-│                        WebServer.begin()               │
-│                        Serve HTML Form                 │
-│                        ↓                               │
-│          ┌─────────────────────────────────┐          │
-│          │ User Submits /salvar             │          │
-│          │ POST SSID + Password             │          │
-│          └─────────────────────────────────┘          │
-│                        ↓                               │
-│          ┌─────────────────────────────────┐          │
-│          │ Store in Preferences (NVS)       │          │
-│          │ Restart ESP32                   │          │
-│          └─────────────────────────────────┘          │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+
+    SETUP[Setup Phase]
+    GPIO[GPIO LED Serial Init]
+
+    SETUP --> GPIO
+    GPIO --> NVS[Preferences NVS]
+
+    NVS --> DEC{Credenciais Validas?}
+
+    DEC -->|Sim| WIFI[WiFi.begin]
+    WIFI --> UDP[UDP Porta 4210]
+    UDP --> NTP[NTP Sync]
+
+    DEC -->|Nao| AP[WiFi.softAP]
+    AP --> WEB[WebServer]
+    WEB --> FORM[Formulario Configuracao]
+    FORM --> SAVE[Salvar Credenciais]
+    SAVE --> RESTART[ESP.restart]
 ```
 
 ---
@@ -171,22 +134,26 @@ The project is built around an M5NanoC6 board with an ESP32-compatible MCU and a
 
 ### Typical runtime behavior
 
-```text
-BOOT
-  │
-  ├─ RGB boot animation (Red → Green → Blue)
-  ├─ Serial console initialized at 115200 baud
-  ├─ Try Wi-Fi connection with stored credentials
-  │
-  ├─ If success:
-  │     ├─ RGB turns green
-  │     ├─ initialize UDP port 4210
-  │     └─ synchronize clock with NTP
-  │
-  └─ If failed:
-        ├─ RGB turns blue
-        ├─ host Wi-Fi AP named M5NANOC6_CONFIG
-        └─ serve HTML config portal on port 80
+```mermaid
+flowchart TD
+
+    A[BOOT]
+    A --> B[RGB Vermelho]
+    B --> C[RGB Verde]
+    C --> D[RGB Azul]
+
+    D --> E[Serial 115200]
+    E --> F[Tentar WiFi]
+
+    F --> G{Conectou?}
+
+    G -->|Sim| H[RGB Verde]
+    H --> I[UDP 4210]
+    I --> J[NTP Sync]
+
+    G -->|Nao| K[RGB Azul]
+    K --> L[AP M5NANOC6_CONFIG]
+    L --> M[Portal Web]
 ```
 
 ---
@@ -391,75 +358,65 @@ The device responds to UDP commands sent to port `4210`.
 
 ### Example UDP command flow
 
-```text
-Client --> UDP packet: LED_ON
-Device --> UDP packet: LED ligado
+```mermaid
+sequenceDiagram
 
-Client --> UDP packet: NET_INFO
-Device --> UDP packet:
-IP: 192.168.1.25
-Gateway: 192.168.1.1
-Mascara de rede: 255.255.255.0
-RSSI: -52 dbm
-Nome da Rede: MinhaRede
+    participant Cliente
+    participant M5NanoC6
+
+    Cliente->>M5NanoC6: LED_ON
+    M5NanoC6-->>Cliente: LED ligado
+
+    Cliente->>M5NanoC6: NET_INFO
+
+    M5NanoC6-->>Cliente: IP
+    M5NanoC6-->>Cliente: Gateway
+    M5NanoC6-->>Cliente: Mascara
+    M5NanoC6-->>Cliente: RSSI
+    M5NanoC6-->>Cliente: SSID
 ```
 
 ---
 
 ## Runtime Message Sequence
 
-```text
-Device Boot
-    ↓
-[GPIO Init] → [RGB Boot Animation] → [Serial 115200]
-    ↓
-[Read Preferences: wifi.ssid, wifi.senha]
-    ↓
-    ├─ IF (ssid != empty)
-    │    ↓
-    │    [WiFi.mode(WIFI_STA)]
-    │    [WiFi.begin(ssid, password)]
-    │    ↓
-    │    [RGB Orange - Connecting...]
-    │    [Loop: attempt connection, max 20 tries]
-    │    ↓
-    │    ├─ IF (connected)
-    │    │    ↓
-    │    │    [RGB Green]
-    │    │    [UDP socket on port 4210]
-    │    │    [NTP time sync]
-    │    │    ↓
-    │    │    → NORMAL RUNTIME (listening for commands)
-    │    │
-    │    └─ ELSE (timeout or error)
-    │         ↓
-    │         [RGB Red]
-    │         [Fall back to AP mode]
-    │
-    └─ ELSE (no saved ssid)
-         ↓
-         [RGB Blue]
-         [WiFi.mode(WIFI_AP)]
-         [WiFi.softAP("M5NANOC6_CONFIG")]
-         [WebServer on port 80]
-         ↓
-         [Serve HTML form at GET /]
-         [Wait for POST /salvar]
-         ↓
-         [Store SSID/password in NVS]
-         [ESP.restart()]
-         ↓
-         → Back to boot sequence
+```mermaid
+flowchart TD
 
-NORMAL RUNTIME (Loop)
-    ↓
-    [Check WiFi.getMode() == WIFI_AP → handle web client]
-    [Parse incoming UDP packets on port 4210]
-    [Check reset button (GPIO 9)]
-    [Update LED blink state if active]
-    ↓
-    [On UDP command: call executa_comando(cmd)]
-    [Send response back to client]
+    A[Device Boot]
+    A --> B[GPIO Init]
+    B --> C[RGB Animation]
+    C --> D[Serial 115200]
+    D --> E[Ler Preferences]
+
+    E --> F{SSID Existe?}
+
+    F -->|Sim| G[WiFi STA]
+    G --> H[WiFi.begin]
+    H --> I[RGB Laranja]
+
+    I --> J{Conectou?}
+
+    J -->|Sim| K[RGB Verde]
+    K --> L[UDP 4210]
+    L --> M[NTP Sync]
+    M --> N[Modo Normal]
+
+    J -->|Nao| O[RGB Vermelho]
+    O --> P[Modo AP]
+
+    F -->|Nao| P
+
+    P --> Q[WiFi.softAP]
+    Q --> R[WebServer]
+    R --> S[Formulario HTML]
+    S --> T[Salvar Credenciais]
+    T --> U[ESP.restart]
+
+    N --> V[Receber UDP]
+    V --> W[Executar Comando]
+    W --> X[Responder Cliente]
+    X --> V
 ```
 
 ---
@@ -513,29 +470,31 @@ The form submits to `/salvar` using `POST`, where the firmware stores the values
 
 ### Configuration Portal Flow
 
-```text
-Browser connects to M5NANOC6_CONFIG
-    ↓
-GET / (HTML form served)
-    ↓
-User enters SSID and Password
-    ↓
-POST /salvar
-    ↓
-[Server reads: server.arg("ssid"), server.arg("senha")]
-    ↓
-[Preferences.begin("wifi", false)]
-[prefs.putString("ssid", novoSSID)]
-[prefs.putString("senha", novaSenha)]
-[prefs.end()]
-    ↓
-[server.send(200, "text/html", "<h2>Configuracao salva! Reiniciando...</h2>")]
-    ↓
-[delay(2000)]
-    ↓
-[ESP.restart()]
-    ↓
-→ Boot sequence runs again with new credentials
+```mermaid
+flowchart TD
+
+    A[Conectar ao AP M5NANOC6_CONFIG]
+    A --> B[GET /]
+
+    B --> C[Formulario HTML]
+
+    C --> D[Usuario Digita SSID e Senha]
+
+    D --> E[POST salvar]
+
+    E --> F[server.arg ssid]
+    F --> G[server.arg senha]
+
+    G --> H[Preferences.begin]
+    H --> I[prefs.putString ssid]
+    I --> J[prefs.putString senha]
+    J --> K[prefs.end]
+
+    K --> L[Mensagem Configuracao Salva]
+    L --> M[delay 2000]
+    M --> N[ESP.restart]
+
+    N --> O[Novo Boot]
 ```
 
 ---
@@ -620,22 +579,29 @@ Ensure:
 
 ## Practical Example
 
-```text
-Power on device
-  → RGB boot animation runs
-  → if saved Wi-Fi exists, connect automatically
-  → if not, AP M5NANOC6_CONFIG is visible
+```mermaid
+flowchart TD
 
-Open browser at the access point IP
-  → fill SSID and password
-  → submit the form
+    A[Ligar Dispositivo]
+    A --> B[Animacao RGB]
 
-Device restarts and joins the network
-  → NTP sync begins
-  → UDP port 4210 is active
-  → remote client can query CPU, IP, memory, or time
+    B --> C{WiFi Salvo?}
+
+    C -->|Sim| D[Conectar Rede]
+
+    C -->|Nao| E[AP M5NANOC6_CONFIG]
+    E --> F[Abrir Navegador]
+    F --> G[Informar SSID e Senha]
+    G --> H[Reiniciar]
+
+    D --> I[NTP Sync]
+    H --> I
+
+    I --> J[UDP 4210 Ativo]
+    J --> K[Consulta CPU]
+    J --> L[Consulta Rede]
+    J --> M[Consulta Hora]
 ```
-
 ---
 
 ## Summary
