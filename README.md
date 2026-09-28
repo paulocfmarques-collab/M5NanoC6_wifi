@@ -33,26 +33,47 @@ The firmware is designed around a simple operation model:
 
 ## System Architecture
 
-```mermaid
-flowchart TD
-    A[Power On] --> B[Initialize GPIO / RGB LED / Serial]
-    B --> C[Boot Animation]
-    C --> D{Credentials saved in Preferences?}
-    D -- Yes --> E[WiFi.begin(ssid, password)]
-    D -- No --> F[Start Access Point: M5NANOC6_CONFIG]
-    F --> G[Serve HTML configuration page]
-    G --> H[POST /salvar]
-    H --> I[Store SSID and password in NVS / Preferences]
-    I --> J[Restart ESP32]
-    E --> K{Connected?}
-    K -- Yes --> L[Enable UDP socket on port 4210]
-    L --> M[Sync time via NTP]
-    M --> N[Normal runtime]
-    K -- No --> F
-    N --> O[Receive UDP packets]
-    O --> P[Parse command]
-    P --> Q[Execute action: LED, status, time, diagnostics, reset]
-    Q --> R[Reply to client over UDP]
+### Boot and Connection Flow
+
+```
+Power On
+   ↓
+Initialize GPIO / RGB LED / Serial
+   ↓
+Boot Animation (RGB sequence)
+   ↓
+Read Credentials from NVS Preferences
+   ↓
+   ├─→ Credentials Found?
+   │   ├─→ YES: WiFi.begin(ssid, password)
+   │   │        Attempt connection (max 20 retries)
+   │   │        ↓
+   │   │        Connected?
+   │   │        ├─→ YES: Enable UDP socket on port 4210
+   │   │        │        Sync time via NTP
+   │   │        │        Enter normal runtime (command listening)
+   │   │        │
+   │   │        └─→ NO: Return to AP mode
+   │   │
+   │   └─→ NO: Start Access Point (M5NANOC6_CONFIG)
+   │          Serve HTML configuration page
+   │          Wait for POST /salvar
+   │          Store SSID/password in NVS
+   │          Restart ESP32
+   │
+Normal Runtime
+   ↓
+Receive UDP packets on port 4210
+   ↓
+Parse command string
+   ↓
+Execute action (LED, diagnostics, status, reset)
+   ↓
+Reply to client via UDP
+   ↓
+Check reset button (GPIO 9)
+   ↓
+Check LED blink state and update
 ```
 
 ### High-level block view
@@ -84,6 +105,57 @@ flowchart TD
 +-----------------------------------------------------------+
 ```
 
+### Component Interaction Diagram
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                    M5NanoC6 System                      │
+│                                                         │
+│  ┌────────────┐         ┌──────────────┐               │
+│  │   Setup    │────────>│ GPIO Init    │               │
+│  │   Phase    │         │ LED Init     │               │
+│  └────────────┘         │ Serial Init  │               │
+│       │                 └──────────────┘               │
+│       └────────────────────────┬───────────────────────┤
+│                               │                         │
+│  ┌──────────────────────┐     │                         │
+│  │  Preferences (NVS)   │<────┤                         │
+│  │  Read wifi.ssid      │     │                         │
+│  │  Read wifi.senha     │     │                         │
+│  └──────────────────────┘     │                         │
+│       │                       │                         │
+│       ├─ Credentials OK       │                         │
+│       │  └────────────────────┴─>  WiFi.begin()       │
+│       │                            WiFi.connect()      │
+│       │                            ↓                   │
+│       │                    ┌────────────────┐          │
+│       │                    │ UDP Ready Port │          │
+│       │                    │     4210       │          │
+│       │                    └────────────────┘          │
+│       │                            ↓                   │
+│       │                    ┌────────────────┐          │
+│       │                    │   NTP Sync     │          │
+│       │                    │  Get Local Time│          │
+│       │                    └────────────────┘          │
+│       │                                                 │
+│       └─ No Credentials                                │
+│          └───────────> WiFi.softAP() M5NANOC6_CONFIG  │
+│                        WebServer.begin()               │
+│                        Serve HTML Form                 │
+│                        ↓                               │
+│          ┌─────────────────────────────────┐          │
+│          │ User Submits /salvar             │          │
+│          │ POST SSID + Password             │          │
+│          └─────────────────────────────────┘          │
+│                        ↓                               │
+│          ┌─────────────────────────────────┐          │
+│          │ Store in Preferences (NVS)       │          │
+│          │ Restart ESP32                   │          │
+│          └─────────────────────────────────┘          │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Hardware and Pin Map
@@ -102,17 +174,17 @@ The project is built around an M5NanoC6 board with an ESP32-compatible MCU and a
 ```text
 BOOT
   │
-  ├─ RGB boot animation
+  ├─ RGB boot animation (Red → Green → Blue)
   ├─ Serial console initialized at 115200 baud
   ├─ Try Wi-Fi connection with stored credentials
   │
   ├─ If success:
-  │     ├─ turn status green
+  │     ├─ RGB turns green
   │     ├─ initialize UDP port 4210
   │     └─ synchronize clock with NTP
   │
   └─ If failed:
-        ├─ turn status blue
+        ├─ RGB turns blue
         ├─ host Wi-Fi AP named M5NANOC6_CONFIG
         └─ serve HTML config portal on port 80
 ```
@@ -158,10 +230,10 @@ The project listens on UDP port `4210` and parses incoming text commands. The co
 
 The board includes a programmable RGB LED and a digital status LED:
 
-- green = connected to Wi-Fi
-- blue = access point configuration mode
-- orange = connection attempt in progress
-- red = configuration missing / failure path
+- **green** = connected to Wi-Fi
+- **blue** = access point configuration mode
+- **orange** = connection attempt in progress
+- **red** = configuration missing / failure path
 
 The firmware also supports blinking patterns and controlled LED state changes:
 
@@ -224,24 +296,24 @@ This file handles the network layer.
 
 Primary functions:
 
-- `iniciarPortal()`
+- **`iniciarPortal()`**
   - set board to AP mode
   - generate device access point
   - register web routes `/` and `/salvar`
   - begin the HTTP server
 
-- `conectarWifi()`
+- **`conectarWifi()`**
   - load SSID/password from non-volatile memory
   - attempt Wi-Fi connection
   - retry for a limited number of cycles
   - return success/failure
 
-- `salvarWifi()`
+- **`salvarWifi()`**
   - read submitted SSID/password from the HTTP POST request
   - save them in persistent memory
   - restart the device
 
-- `zerarConfiguracoes()`
+- **`zerarConfiguracoes()`**
   - clear stored Wi-Fi values
   - send a UDP notification message
   - blink the onboard LED several times
@@ -278,18 +350,18 @@ This file supplies the time and status helper functions.
 
 Functions:
 
-- `configureNTP()`
+- **`configureNTP()`**
   - call `configTime()` with timezone data
   - wait for valid local time
   - print the current timestamp to serial
 
-- `rainbowBoot()`
+- **`rainbowBoot()`**
   - produce a short LED color sequence during startup
 
-- `setStatusRGB()`
+- **`setStatusRGB()`**
   - set the color and brightness of the RGB LED
 
-- `GetDataHora()`
+- **`GetDataHora()`**
   - fetch local time from the system clock
   - format as `DD/MM/YYYY - HH:MM:SS`
   - return it via UDP
@@ -334,34 +406,60 @@ Nome da Rede: MinhaRede
 
 ---
 
-## Runtime Flow
+## Runtime Message Sequence
 
-```mermaid
-sequenceDiagram
-    participant Device as M5NanoC6
-    participant NVS as Preferences (NVS)
-    participant AP as Wi-Fi AP
-    participant UDP as UDP Client
-    participant NTP as NTP Server
+```text
+Device Boot
+    ↓
+[GPIO Init] → [RGB Boot Animation] → [Serial 115200]
+    ↓
+[Read Preferences: wifi.ssid, wifi.senha]
+    ↓
+    ├─ IF (ssid != empty)
+    │    ↓
+    │    [WiFi.mode(WIFI_STA)]
+    │    [WiFi.begin(ssid, password)]
+    │    ↓
+    │    [RGB Orange - Connecting...]
+    │    [Loop: attempt connection, max 20 tries]
+    │    ↓
+    │    ├─ IF (connected)
+    │    │    ↓
+    │    │    [RGB Green]
+    │    │    [UDP socket on port 4210]
+    │    │    [NTP time sync]
+    │    │    ↓
+    │    │    → NORMAL RUNTIME (listening for commands)
+    │    │
+    │    └─ ELSE (timeout or error)
+    │         ↓
+    │         [RGB Red]
+    │         [Fall back to AP mode]
+    │
+    └─ ELSE (no saved ssid)
+         ↓
+         [RGB Blue]
+         [WiFi.mode(WIFI_AP)]
+         [WiFi.softAP("M5NANOC6_CONFIG")]
+         [WebServer on port 80]
+         ↓
+         [Serve HTML form at GET /]
+         [Wait for POST /salvar]
+         ↓
+         [Store SSID/password in NVS]
+         [ESP.restart()]
+         ↓
+         → Back to boot sequence
 
-    Device->>NVS: Read wifi.ssid / wifi.senha
-    alt Data exists
-        Device->>Device: WiFi.mode(WIFI_STA)
-        Device->>Device: WiFi.begin(ssid, password)
-        Device-->>UDP: Join network if successful
-    else No data
-        Device->>AP: Start "M5NANOC6_CONFIG"
-        Device->>UDP: Serve portal page at /
-        UDP->>Device: POST /salvar with SSID + password
-        Device->>NVS: Save Wi-Fi credentials
-        Device->>Device: Restart
-    end
-
-    Device->>NTP: Request local time
-    NTP-->>Device: UTC timestamp
-    Device->>UDP: Listen on port 4210
-    UDP->>Device: Send command (e.g. CPU)
-    Device->>UDP: Return telemetry/status text
+NORMAL RUNTIME (Loop)
+    ↓
+    [Check WiFi.getMode() == WIFI_AP → handle web client]
+    [Parse incoming UDP packets on port 4210]
+    [Check reset button (GPIO 9)]
+    [Update LED blink state if active]
+    ↓
+    [On UDP command: call executa_comando(cmd)]
+    [Send response back to client]
 ```
 
 ---
@@ -413,17 +511,31 @@ The page contains:
 
 The form submits to `/salvar` using `POST`, where the firmware stores the values in the ESP32 non-volatile preferences and reboots.
 
-### Screenshot concept
+### Configuration Portal Flow
 
 ```text
-+-------------------------------------+
-| Configuração WiFi - M5NanoC6        |
-|                                     |
-| SSID: [____________________]         |
-| Password: [_________________]       |
-|                                     |
-|            [ Save ]                  |
-+-------------------------------------+
+Browser connects to M5NANOC6_CONFIG
+    ↓
+GET / (HTML form served)
+    ↓
+User enters SSID and Password
+    ↓
+POST /salvar
+    ↓
+[Server reads: server.arg("ssid"), server.arg("senha")]
+    ↓
+[Preferences.begin("wifi", false)]
+[prefs.putString("ssid", novoSSID)]
+[prefs.putString("senha", novaSenha)]
+[prefs.end()]
+    ↓
+[server.send(200, "text/html", "<h2>Configuracao salva! Reiniciando...</h2>")]
+    ↓
+[delay(2000)]
+    ↓
+[ESP.restart()]
+    ↓
+→ Boot sequence runs again with new credentials
 ```
 
 ---
@@ -457,7 +569,7 @@ Because it uses the ESP32 `Preferences` API, settings persist across reboots wit
 ### Flashing steps
 
 1. Open the project in Arduino IDE or PlatformIO.
-2. Select the correct ESP32 board variant.
+2. Select the correct ESP32 board variant (M5NanoC6).
 3. Ensure the board is connected via USB/serial.
 4. Compile the code.
 5. Upload the sketch.
@@ -510,18 +622,18 @@ Ensure:
 
 ```text
 Power on device
-  -> RGB boot animation runs
-  -> if saved Wi-Fi exists, connect automatically
-  -> if not, AP M5NANOC6_CONFIG is visible
+  → RGB boot animation runs
+  → if saved Wi-Fi exists, connect automatically
+  → if not, AP M5NANOC6_CONFIG is visible
 
 Open browser at the access point IP
-  -> fill SSID and password
-  -> submit the form
+  → fill SSID and password
+  → submit the form
 
 Device restarts and joins the network
-  -> NTP sync begins
-  -> UDP port 4210 is active
-  -> remote client can query CPU, IP, memory, or time
+  → NTP sync begins
+  → UDP port 4210 is active
+  → remote client can query CPU, IP, memory, or time
 ```
 
 ---
@@ -548,7 +660,7 @@ The repository is intentionally minimal and direct. It is not a large framework 
 
 If you want, I can also generate:
 
-1. a more polished README with extra SVG-style architecture diagrams,
-2. a banner image section for GitHub,
+1. a more polished README with extra ASCII-art style diagrams,
+2. a badge section for GitHub,
 3. a `LICENSE` file,
 4. a `platformio.ini` configuration for easier building and upload.
