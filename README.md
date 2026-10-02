@@ -1,237 +1,126 @@
 # M5NanoC6 WiFi
 
-A compact and resilient Wi-Fi utility firmware for the M5NanoC6 hardware. This project turns the device into a lightweight ESP32-based network node that can:
+A compact, resilient ESP32 Wi‑Fi utility for the M5NanoC6 board. The firmware automatically connects to a saved Wi‑Fi network, falls back to a captive setup portal when needed, exposes a lightweight UDP control interface, and manages status LED feedback, time synchronization, reset behavior, and simple hardware controls.
 
-- connect to a saved Wi-Fi network automatically,
-- start a captive configuration portal when no credentials are available,
-- expose a UDP command interface for remote control and telemetry,
-- report system metrics and current time,
-- manage status LEDs and device reset behavior.
-
-The sketch is intentionally small, portable, and easy to adapt for automation, monitoring, and IoT edge devices.
+This project is intentionally small, modular, and easy to adapt for IoT edge devices, local automation, monitoring nodes, and prototype controllers.
 
 ---
 
 ## Overview
 
-This repository contains a single Arduino/ESP32 sketch split into logical source files:
+The project is now organized into separate modular C++ headers instead of a single monolithic sketch:
 
-- `M5NanoC6_wifi.ino` — main setup, loop, and web configuration page
-- `wifi.ino` — Wi-Fi connection, portal logic, and configuration persistence
-- `commands.ino` — UDP command dispatcher and device control commands
-- `utils.ino` — NTP synchronization and helper utilities
+- `M5NanoC6_wifi.ino` — main program, boot flow, and loop
+- `Config.h` — hardware pins, UDP port, timezone defaults, and captive portal HTML
+- `HardwareController.h` — RGB LED, button handling, IR pulse, blink logic
+- `DeviceNetwork.h` — Wi‑Fi connection, AP portal, UDP socket, preferences, factory reset
+- `NTPService.h` — timezone configuration and local time retrieval
+- `CommandHandler.h` — UDP command parsing and command responses
 
-The firmware is designed around a simple operation model:
+The runtime flow is:
 
 1. boot the board,
-2. try to connect to saved Wi-Fi credentials,
-3. if not available, open an access point and serve a configuration form,
-4. accept UDP commands from a remote host,
-5. provide diagnostics, LEDs, network info, and clock synchronization.
-
----
-
-## System Architecture
-
-### Boot and Connection Flow
-
-```mermaid
-flowchart TD
-    A[Power On] --> B[Inicializar GPIO RGB e Serial]
-    B --> C[Boot Animation]
-    C --> D[Ler Credenciais NVS]
-
-    D --> E{Credenciais Encontradas?}
-
-    E -->|Sim| F[WiFi.begin]
-    F --> G[Tentar Conexao ate 20 vezes]
-
-    G --> H{Conectou?}
-
-    H -->|Sim| I[Iniciar UDP Porta 4210]
-    I --> J[Sincronizar NTP]
-    J --> K[Modo Normal]
-
-    H -->|Nao| L[Entrar em Modo AP]
-
-    E -->|Nao| L
-
-    L --> M[Criar AP M5NANOC6_CONFIG]
-    M --> N[Servidor Web]
-    N --> O[Receber POST salvar]
-    O --> P[Gravar SSID e Senha]
-    P --> Q[Reiniciar ESP32]
-
-    K --> R[Receber Pacotes UDP]
-    R --> S[Interpretar Comando]
-    S --> T[Executar Acao]
-    T --> U[Responder UDP]
-    U --> V[Verificar Botao Reset]
-    V --> W[Atualizar LEDs]
-    W --> R
-```
-
-### High-level block view
-
-```mermaid
-flowchart LR
-
-    ESP[ESP32 Core]
-    WIFI[WiFi Web Server]
-    RGB[RGB Indicator NeoPixel]
-    RESET[Reset Button GPIO9]
-    UDP[UDP Commands]
-    LED[Status LED GPIO7]
-
-    ESP --> WIFI
-    ESP --> RGB
-    ESP --> RESET
-    ESP --> UDP
-    ESP --> LED
-
-    UDP --> CMD1[LED_ON]
-    UDP --> CMD2[TEMP]
-    UDP --> CMD3[NET_INFO]
-    UDP --> CMD4[TIME]
-    UDP --> CMD5[RESET_WIFI]
-```
-
-### Component Interaction Diagram
-
-```mermaid
-flowchart TD
-
-    SETUP[Setup Phase]
-    GPIO[GPIO LED Serial Init]
-
-    SETUP --> GPIO
-    GPIO --> NVS[Preferences NVS]
-
-    NVS --> DEC{Credenciais Validas?}
-
-    DEC -->|Sim| WIFI[WiFi.begin]
-    WIFI --> UDP[UDP Porta 4210]
-    UDP --> NTP[NTP Sync]
-
-    DEC -->|Nao| AP[WiFi.softAP]
-    AP --> WEB[WebServer]
-    WEB --> FORM[Formulario Configuracao]
-    FORM --> SAVE[Salvar Credenciais]
-    SAVE --> RESTART[ESP.restart]
-```
-
----
-
-## Hardware and Pin Map
-
-The project is built around an M5NanoC6 board with an ESP32-compatible MCU and a single RGB LED.
-
-| Signal | Pin | Purpose |
-| --- | --- | --- |
-| RGB Data | GPIO 20 | NeoPixel status indicator |
-| ENABLE | GPIO 19 | Device enable / power rail control |
-| Status LED | GPIO 7 | General-purpose LED output |
-| Reset Button | GPIO 9 | Press to clear saved Wi-Fi configuration |
-
-### Typical runtime behavior
-
-```mermaid
-flowchart TD
-
-    A[BOOT]
-    A --> B[RGB Vermelho]
-    B --> C[RGB Verde]
-    C --> D[RGB Azul]
-
-    D --> E[Serial 115200]
-    E --> F[Tentar WiFi]
-
-    F --> G{Conectou?}
-
-    G -->|Sim| H[RGB Verde]
-    H --> I[UDP 4210]
-    I --> J[NTP Sync]
-
-    G -->|Nao| K[RGB Azul]
-    K --> L[AP M5NANOC6_CONFIG]
-    L --> M[Portal Web]
-```
+2. read stored Wi‑Fi credentials from NVS/Preferences,
+3. connect to Wi‑Fi if credentials exist,
+4. otherwise start the access point and web configuration portal,
+5. listen for UDP control commands on port `4210`,
+6. respond with status, telemetry, or state changes.
 
 ---
 
 ## Features
 
-### 1. Automatic Wi-Fi connection
+- Automatic Wi‑Fi connection with persistent SSID/password storage
+- Captive configuration portal (`M5NanoC6_CONFIG`)
+- UDP command server on port `4210`
+- Local time configuration with NTP and timezone support
+- RGB status LED feedback for connection states and configuration sessions
+- User reset button support to clear saved Wi‑Fi settings
+- Infrared pulse output support using GPIO 3
+- Diagnostics commands for system, network, and runtime data
+- Direct control of the onboard RGB LED and blue status LED
 
-The device reads previously saved SSID/password values from the ESP32 NVS storage using `Preferences`.
+---
 
-- stored under namespace: `wifi`
-- keys used:
-  - `ssid`
-  - `senha`
+## Hardware and Pin Map
 
-If no saved SSID is present, the board automatically enters AP mode and waits for a new configuration.
+| Signal | Pin | Purpose |
+| --- | --- | --- |
+| RGB Data | GPIO 20 | NeoPixel data line |
+| RGB Enable | GPIO 19 | Enables the NeoPixel power rail |
+| Status LED | GPIO 7 | Blue status LED |
+| User Button | GPIO 9 | Resets Wi‑Fi config when pressed |
+| IR TX | GPIO 3 | Infrared emitter output |
 
-### 2. Captive configuration portal
+The project uses the M5NanoC6 board with an ESP32-class MCU and an RGB indicator.
 
-When Wi-Fi is not configured, the firmware starts a soft access point:
+---
 
-```text
-SSID: M5NANOC6_CONFIG
-AP IP: default ESP softAP IP assigned by the stack
+## Boot and Connection Flow
+
+```mermaid
+flowchart TD
+    A[Power On] --> B[Serial Init]
+    B --> C[Hardware Begin]
+    C --> D[Read WiFi Preferences]
+    D --> E{Credentials Saved?}
+
+    E -->|Yes| F[WiFi.begin]
+    F --> G{Connected?}
+    G -->|Yes| H[Start UDP]
+    H --> I[Sync NTP]
+    I --> J[Normal Mode]
+
+    G -->|No| K[AP Mode]
+
+    E -->|No| K
+
+    K --> L[Start SoftAP M5NanoC6_CONFIG]
+    L --> M[Serve HTML config page]
+    M --> N[Receive POST /salvar]
+    N --> O[Save SSID + password]
+    O --> P[Restart ESP32]
+
+    J --> Q[Receive UDP commands]
+    Q --> R[Interpret command]
+    R --> S[Action / response]
+    S --> Q
 ```
 
-The web server serves a basic HTML page on `/` and accepts form submissions on `/salvar`.
+---
 
-The form captures:
+## Web Configuration Portal
+
+When no saved Wi‑Fi settings are available, the board starts an access point named:
+
+```text
+M5NanoC6_CONFIG
+```
+
+The access point exposes an HTML form on `/` and saves the submitted values when posting to `/salvar`.
+
+Form fields:
 
 - `ssid`
 - `senha`
 
-After saving credentials, the device reboots to reconnect using the new configuration.
+On save, the device stores the values in Preferences and restarts so it can reconnect automatically.
 
-### 3. UDP command protocol
+---
 
-The project listens on UDP port `4210` and parses incoming text commands. The command handlers live in `commands.ino` and respond back to the remote sender using the same UDP socket.
+## Repository Structure
 
-### 4. LED control and visual feedback
-
-The board includes a programmable RGB LED and a digital status LED:
-
-- **green** = connected to Wi-Fi
-- **blue** = access point configuration mode
-- **orange** = connection attempt in progress
-- **red** = configuration missing / failure path
-
-The firmware also supports blinking patterns and controlled LED state changes:
-
-- `LED_ON`
-- `LED_OFF`
-- `LED_PISCA:<count>:<delay>`
-- `LED_BLINK:<interval_ms>`
-
-### 5. Diagnostics and monitoring
-
-The firmware can answer with detailed runtime information, including:
-
-- CPU temperature
-- chip model, revision, cores, and clock speed
-- free heap / lowest heap / largest allocatable block
-- flash size and sketch usage
-- NTP time / local date-time
-- Wi-Fi interface information (IP, gateway, mask, RSSI, SSID)
-- last boot cause
-- uptime in milliseconds
-
-### 6. Time synchronization
-
-NTP is configured using:
-
-- `pool.ntp.org`
-- UTC-3 offset (`-3 * 3600`) for Brasília time
-- no daylight saving offset
-
-This allows the device to report local time accurately once it is online.
+```text
+M5NanoC6_wifi/
+├── M5NanoC6_wifi.ino
+├── Config.h
+├── HardwareController.h
+├── DeviceNetwork.h
+├── NTPService.h
+├── CommandHandler.h
+├── README.md
+└── platformio.ini (optional, if added by the user locally)
+```
 
 ---
 
@@ -239,278 +128,155 @@ This allows the device to report local time accurately once it is online.
 
 ### `M5NanoC6_wifi.ino`
 
-This is the main sketch file. It contains the central execution flow and acts as the coordinator for the system.
+Main sketch file. Initializes all modules and implements the main logic loop.
 
 Responsibilities:
 
-- includes the required libraries:
-  - `WiFi.h`
-  - `WiFiUdp.h`
-  - `WebServer.h`
-  - `Preferences.h`
-  - `Adafruit_NeoPixel.h`
-  - `Zigbee.h`
-- defines board pins and constants
-- initializes the LED object and storage objects
-- builds the HTML configuration page in `PROGMEM`
-- runs `setup()` and `loop()`
-- handles Wi-Fi state transitions
-- listens for UDP commands and forwards them to `executa_comando()`
-- checks the reset button and triggers a configuration wipe if pressed
+- startup serial and hardware initialization,
+- connect to Wi‑Fi or enter AP mode,
+- initialize UDP on successful connection,
+- start NTP synchronization,
+- process incoming UDP commands,
+- handle reset button events.
 
-### `wifi.ino`
+### `Config.h`
 
-This file handles the network layer.
+Central configuration file.
 
-Primary functions:
+Contains:
 
-- **`iniciarPortal()`**
-  - set board to AP mode
-  - generate device access point
-  - register web routes `/` and `/salvar`
-  - begin the HTTP server
+- board GPIO assignments,
+- UDP port definition (`4210`),
+- default timezone setting (`-3` for Brasília),
+- captive portal HTML page content.
 
-- **`conectarWifi()`**
-  - load SSID/password from non-volatile memory
-  - attempt Wi-Fi connection
-  - retry for a limited number of cycles
-  - return success/failure
+### `HardwareController.h`
 
-- **`salvarWifi()`**
-  - read submitted SSID/password from the HTTP POST request
-  - save them in persistent memory
-  - restart the device
+Handles hardware-level actions such as:
 
-- **`zerarConfiguracoes()`**
-  - clear stored Wi-Fi values
-  - send a UDP notification message
-  - blink the onboard LED several times
-  - restart the board
+- RGB LED state changes,
+- blink patterns,
+- button press detection,
+- IR emitter pulse generation,
+- low-level board initialization.
 
-### `commands.ino`
+### `DeviceNetwork.h`
 
-This is the command interpreter for the remote protocol.
+Handles the networking layer.
 
-The command parser checks the string value received in the UDP packet and executes the appropriate action.
+Includes:
 
-Example commands handled:
+- Wi‑Fi connection and reconnection logic,
+- AP startup for config portal,
+- web routes `/` and `/salvar`,
+- UDP send/receive handling,
+- preferences access for SSID/password, timezone, DST flags,
+- factory reset routine.
 
-- `RESET_WIFI`
-- `LED_ON`
-- `LED_OFF`
-- `TEMP`
-- `CPU`
-- `RAM`
-- `FLASH`
-- `INIT`
-- `UPTIME`
-- `MAC`
-- `NET_INFO`
-- `TIME`
-- `LED_PISCA:<count>:<delay>`
-- `LED_BLINK:<ms>`
+### `NTPService.h`
 
-The parser also sends acknowledgment text back to the sender with a status or result.
+Time management service.
 
-### `utils.ino`
+Features:
 
-This file supplies the time and status helper functions.
+- `configTzTime(...)` configuration,
+- timezone/DST handling,
+- local time retrieval through `getLocalTime()`,
+- helper methods to return formatted time and date strings.
 
-Functions:
+### `CommandHandler.h`
 
-- **`configureNTP()`**
-  - call `configTime()` with timezone data
-  - wait for valid local time
-  - print the current timestamp to serial
+UDP command processor.
 
-- **`rainbowBoot()`**
-  - produce a short LED color sequence during startup
-
-- **`setStatusRGB()`**
-  - set the color and brightness of the RGB LED
-
-- **`GetDataHora()`**
-  - fetch local time from the system clock
-  - format as `DD/MM/YYYY - HH:MM:SS`
-  - return it via UDP
+This is the command dispatcher for the embedded protocol and implements the supported commands described below.
 
 ---
 
 ## Command Reference
 
-The device responds to UDP commands sent to port `4210`.
+The device listens on UDP port `4210` and accepts plain text commands from remote clients.
 
 | Command | Description |
 | --- | --- |
-| `RESET_WIFI` | clears stored Wi-Fi settings and restarts the board |
-| `LED_ON` | turns the status LED on |
-| `LED_OFF` | turns the status LED off |
-| `TEMP` | returns CPU temperature |
-| `CPU` | returns chip model, revision, cores, frequency, and heap info |
-| `RAM` | returns heap memory status |
-| `FLASH` | returns flash size and sketch usage details |
-| `INIT` | returns the reset reason |
-| `UPTIME` | returns the system uptime in milliseconds |
-| `MAC` | returns the Wi-Fi MAC address |
-| `NET_INFO` | returns IP, gateway, subnet mask, SSID, and RSSI |
-| `TIME` | returns the current time in local date/time format |
-| `LED_PISCA:<count>:<delay>` | blinks the LED a given number of times with a delay |
-| `LED_BLINK:<ms>` | toggles automatic blinking with the provided interval |
+| `RESET_WIFI` | Clears saved Wi‑Fi credentials and restarts the board |
+| `TIME` | Returns current local time and date |
+| `DST_ON` | Enables DST/timezone daylight-saving mode |
+| `DST_OFF` | Disables DST/timezone daylight-saving mode |
+| `SET_FUSO:<value>` | Saves a new timezone offset value |
+| `SET_RGB:R,G,B` | Sets the RGB LED color (values 0–255) |
+| `LED_ON` | Turns the status LED on (white) |
+| `LED_OFF` | Turns the status LED off |
+| `IR_TX` | Emits an infrared pulse |
+| `SYS_INFO` | Returns chip info and free RAM |
 
-### Example UDP command flow
+Examples:
+
+```text
+SET_FUSO:-3
+SET_RGB:255,0,0
+SET_RGB:0,255,0
+LED_ON
+LED_OFF
+TIME
+RESET_WIFI
+SYS_INFO
+```
+
+### Example UDP Workflow
 
 ```mermaid
 sequenceDiagram
+    participant Client
+    participant Device
 
-    participant Cliente
-    participant M5NanoC6
+    Client->>Device: SET_RGB:255,0,0
+    Device-->>Client: Cor alterada -> R:255 G:0 B:0
 
-    Cliente->>M5NanoC6: LED_ON
-    M5NanoC6-->>Cliente: LED ligado
+    Client->>Device: TIME
+    Device-->>Client: Hora: 12:34:56 | Data: 02/10/2026
 
-    Cliente->>M5NanoC6: NET_INFO
-
-    M5NanoC6-->>Cliente: IP
-    M5NanoC6-->>Cliente: Gateway
-    M5NanoC6-->>Cliente: Mascara
-    M5NanoC6-->>Cliente: RSSI
-    M5NanoC6-->>Cliente: SSID
+    Client->>Device: SYS_INFO
+    Device-->>Client: Chip: ESP32 ... | Cores: 2 | RAM Livre: ...
 ```
 
 ---
 
-## Runtime Message Sequence
+## Operational States
 
-```mermaid
-flowchart TD
+The board provides visual feedback using the RGB LED:
 
-    A[Device Boot]
-    A --> B[GPIO Init]
-    B --> C[RGB Animation]
-    C --> D[Serial 115200]
-    D --> E[Ler Preferences]
-
-    E --> F{SSID Existe?}
-
-    F -->|Sim| G[WiFi STA]
-    G --> H[WiFi.begin]
-    H --> I[RGB Laranja]
-
-    I --> J{Conectou?}
-
-    J -->|Sim| K[RGB Verde]
-    K --> L[UDP 4210]
-    L --> M[NTP Sync]
-    M --> N[Modo Normal]
-
-    J -->|Nao| O[RGB Vermelho]
-    O --> P[Modo AP]
-
-    F -->|Nao| P
-
-    P --> Q[WiFi.softAP]
-    Q --> R[WebServer]
-    R --> S[Formulario HTML]
-    S --> T[Salvar Credenciais]
-    T --> U[ESP.restart]
-
-    N --> V[Receber UDP]
-    V --> W[Executar Comando]
-    W --> X[Responder Cliente]
-    X --> V
-```
+- white = startup / initialization
+- yellow = Wi‑Fi connection attempt
+- red = Wi‑Fi failure / error state
+- blue = AP configuration portal active
+- green = Wi‑Fi connected and UDP ready
+- magenta = NTP synchronized
 
 ---
 
-## Boot and Reset Logic
+## Time and Timezone Configuration
 
-### Normal boot sequence
+The project uses:
 
-```text
-1. board power on
-2. GPIO pins initialized
-3. LED boot colors are displayed
-4. firmware tries saved Wi-Fi credentials
-5. on success: connect to Wi-Fi and start UDP service
-6. on failure: AP mode + configuration portal
-7. device waits for commands or reconfiguration
-```
+- NTP servers: `a.st1.ntp.br`, `pool.ntp.org`, `time.nist.gov`
+- default timezone offset: `-3` (Brasília)
+- optional `DST_ON` and `DST_OFF` switching
 
-### Reset button logic
+This allows the device to report local time once it is online.
 
-The project checks the reset button in the main loop:
+---
+
+## Reset and Recovery Logic
+
+The reset button is checked in the main loop. If pressed, the device clears saved settings and restarts:
 
 ```cpp
-if (digitalRead(BOTAO_RESET) == LOW) {
-  delay(50);
-  if (digitalRead(BOTAO_RESET) == LOW) {
-    zerarConfiguracoes();
-  }
+if (hardware.botaoPressionado()) {
+    network.resetarFabrica();
 }
 ```
 
-This is intended as an emergency action to clear stored Wi-Fi credentials and restart the board.
-
----
-
-## Configuration Portal
-
-When no valid Wi-Fi configuration is found, the board creates an access point and exposes a small form page.
-
-### HTML form behavior
-
-The page contains:
-
-- title: `Configuração WiFi - M5NanoC6`
-- fields:
-  - `ssid`
-  - `senha`
-- submit button: `Salvar`
-
-The form submits to `/salvar` using `POST`, where the firmware stores the values in the ESP32 non-volatile preferences and reboots.
-
-### Configuration Portal Flow
-
-```mermaid
-flowchart TD
-
-    A[Conectar ao AP M5NANOC6_CONFIG]
-    A --> B[GET /]
-
-    B --> C[Formulario HTML]
-
-    C --> D[Usuario Digita SSID e Senha]
-
-    D --> E[POST salvar]
-
-    E --> F[server.arg ssid]
-    F --> G[server.arg senha]
-
-    G --> H[Preferences.begin]
-    H --> I[prefs.putString ssid]
-    I --> J[prefs.putString senha]
-    J --> K[prefs.end]
-
-    K --> L[Mensagem Configuracao Salva]
-    L --> M[delay 2000]
-    M --> N[ESP.restart]
-
-    N --> O[Novo Boot]
-```
-
----
-
-## Deployment Notes
-
-This project is especially useful for:
-
-- sensor gateways,
-- ESP32-based automation controllers,
-- remote status monitoring devices,
-- local device control using lightweight UDP messaging,
-- quick prototypes that require configuration via a web form and diagnostics via network commands.
-
-Because it uses the ESP32 `Preferences` API, settings persist across reboots without a separate storage device.
+This is useful when the device has stale Wi‑Fi configuration, cannot reach the saved network, or needs to be reconfigured.
 
 ---
 
@@ -520,61 +286,60 @@ Because it uses the ESP32 `Preferences` API, settings persist across reboots wit
 
 - Arduino IDE or VS Code + PlatformIO
 - ESP32 board support package
-- libraries:
-  - `WiFi` (ESP32 core)
-  - `WebServer` (ESP32 core)
-  - `Preferences` (ESP32 core)
-  - `Adafruit NeoPixel`
+- `WiFi` library (ESP32 core)
+- `WebServer` library (ESP32 core)
+- `Preferences` library (ESP32 core)
+- `Adafruit NeoPixel` library
 
-### Flashing steps
+### Flash steps
 
 1. Open the project in Arduino IDE or PlatformIO.
-2. Select the correct ESP32 board variant (M5NanoC6).
-3. Ensure the board is connected via USB/serial.
-4. Compile the code.
+2. Select the correct ESP32 board target for the M5NanoC6.
+3. Connect the board over USB.
+4. Compile the project.
 5. Upload the sketch.
-6. Watch the serial monitor at `115200` baud.
-7. If configuration is missing, connect to the AP and submit SSID/password.
+6. Open the serial monitor at `115200` baud.
+7. If Wi‑Fi is not configured, connect to `M5NanoC6_CONFIG` and configure the network.
 
 ---
 
 ## Troubleshooting
 
-### The device never connects to Wi-Fi
+### Wi‑Fi never connects
 
 Check:
 
-- the SSID/password are correctly stored,
-- the AP is within range,
-- the board is not blocked by a bad password,
-- the `wifi` namespace in NVS is not stale or corrupted.
+- saved SSID/password are valid,
+- the router is within range,
+- the password is not wrong,
+- the stored Preferences namespace is not corrupted.
 
-Use the `RESET_WIFI` command or hold the physical reset button to wipe settings.
+Use the reset button or `RESET_WIFI` command to clear the stored configuration.
 
-### The AP is not appearing
+### AP is not showing
 
 Verify:
 
 - the board booted successfully,
-- `iniciarPortal()` was reached,
-- the serial monitor shows the expected startup messages.
+- the configuration flow was reached,
+- the serial output shows the expected startup logs.
 
-### UDP commands are not responding
+### UDP commands don’t respond
 
 Check:
 
-- the board is connected to Wi-Fi,
-- the client sends to the correct port (`4210`),
-- the sender IP is valid and reachable,
-- the board is not stuck in AP mode or setup mode.
+- the device is connected to Wi‑Fi,
+- the client sends to port `4210`,
+- the board is not stuck in configuration mode,
+- the remote packet IP/port are valid.
 
-### Time is not available
+### Time is unavailable
 
 Ensure:
 
-- the device is connected to the internet,
-- NTP can reach `pool.ntp.org`,
-- no firewall or local network restrictions block outbound UDP/TCP access.
+- the board has internet access,
+- the NTP server is reachable,
+- no firewall blocks outbound NTP access.
 
 ---
 
@@ -582,52 +347,41 @@ Ensure:
 
 ```mermaid
 flowchart TD
+    A[Ligar dispositivo] --> B[Inicializa LED e hardware]
+    B --> C{WiFi salvo?}
 
-    A[Ligar Dispositivo]
-    A --> B[Animacao RGB]
+    C -->|Sim| D[Conecta à rede]
+    D --> E[UDP 4210 ativo]
+    E --> F[Consulta TIME]
+    E --> G[Consulta SYS_INFO]
+    E --> H[Configura SET_RGB]
 
-    B --> C{WiFi Salvo?}
-
-    C -->|Sim| D[Conectar Rede]
-
-    C -->|Nao| E[AP M5NANOC6_CONFIG]
-    E --> F[Abrir Navegador]
-    F --> G[Informar SSID e Senha]
-    G --> H[Reiniciar]
-
-    D --> I[NTP Sync]
-    H --> I
-
-    I --> J[UDP 4210 Ativo]
-    J --> K[Consulta CPU]
-    J --> L[Consulta Rede]
-    J --> M[Consulta Hora]
+    C -->|Não| I[AP M5NanoC6_CONFIG]
+    I --> J[Abrir portal web]
+    J --> K[Salvar SSID/senha]
+    K --> L[Reiniciar device]
 ```
+
 ---
 
 ## Summary
 
-This repository is a small but effective ESP32-based Wi-Fi control and monitoring firmware for the M5NanoC6. It combines:
+This repository is a practical ESP32 Wi‑Fi control and monitoring firmware for the M5NanoC6. It combines:
 
-- Wi-Fi auto-connect,
-- self-healing setup portal,
-- persistent network settings,
-- diagnostic commands,
-- time synchronization,
-- LED state control,
-- a compact UDP control protocol.
+- Wi‑Fi auto-connect and portal configuration,
+- persistent saved network settings,
+- UDP-based command protocol,
+- NTP time synchronization,
+- LED and GPIO control,
+- diagnostics and hardware feedback,
+- simple, modular C++ file organization.
 
-It is well suited for embedded prototypes, local automation, and lightweight network-connected device workflows.
+It is well suited for prototypes, local automation, monitoring, and lightweight networked embedded devices.
 
 ---
 
 ## Notes
 
-The repository is intentionally minimal and direct. It is not a large framework or SDK-based project; it focuses on practical embedded control, low-memory operation, and simple deterministic behavior for an ESP32 board.
+The project is intentionally minimal and direct. It focuses on deterministic behavior, low complexity, and practical embedded control rather than large framework abstractions.
 
-If you want, I can also generate:
-
-1. a more polished README with extra ASCII-art style diagrams,
-2. a badge section for GitHub,
-3. a `LICENSE` file,
-4. a `platformio.ini` configuration for easier building and upload.
+If you want, I can also generate a stronger GitHub badge section, a `platformio.ini` file, a `LICENSE`, or a more visual ASCII-art based README version.
