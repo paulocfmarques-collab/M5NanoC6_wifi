@@ -156,14 +156,13 @@ M5NanoC6_wifi/
 
 ### Fluxo de comunicação
 
-```
-Client           Dispositivo
-  │                  │
-  │──── COMANDO ────>│
-  │                  │
-  │<─── RESPOSTA ────│
-  │                  │
-```
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant D as Dispositivo
+
+    C->>D: COMANDO
+    D-->>C: RESPOSTA
 
 ---
 
