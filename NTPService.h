@@ -55,6 +55,11 @@ public:
         strftime(buffer, sizeof(buffer), "%d/%m/%Y", &timeinfo);
         return String(buffer);
     }
+
+    bool isSincronizado() {
+        struct tm timeinfo;
+        return getLocalTime(&timeinfo, 1000);
+    }
 };
 
 extern NTPService ntp;

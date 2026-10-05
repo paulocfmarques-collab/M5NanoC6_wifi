@@ -20,8 +20,7 @@ void setup() {
         String sIP;
 
         network.iniciarUDP();
-        if(network.getIP(sIP))
-        {
+        if(network.getIP(sIP)) {
             Serial.println(sIP);
         }
         udpPronto = true;
@@ -36,9 +35,11 @@ void setup() {
 
 void loop() {
     hardware.atualizarBlink();
+    
+    network.processarOTA(); 
+    network.processarWebServer(); 
 
     if (!network.estaConectado()) {
-        network.processarWebServer();
         udpPronto = false;
     } 
     else if (hardware.botaoPressionado()) {

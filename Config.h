@@ -46,4 +46,56 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
+const char htmlInfoPage[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M5NanoC6 - Painel de Informações</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #121212; color: #e0e0e0; text-align: center; }
+  .container { background: #1e1e1e; max-width: 450px; margin: 30px auto; padding: 25px; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); border: 1px solid #2d2d2d; }
+  h2 { color: #ff5e00; margin-bottom: 20px; font-weight: 600; }
+  .info-group { text-align: left; background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #ff5e00; }
+  .info-label { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .info-value { font-size: 1.1rem; color: #ffffff; font-weight: bold; margin-top: 4px; font-family: monospace; }
+  .btn { display: inline-block; width: 100%; padding: 12px; margin-top: 15px; background: #333; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; transition: background 0.2s; box-sizing: border-box;}
+  .btn:hover { background: #444; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>M5NanoC6 Status</h2>
+  
+  <div class="info-group">
+    <div class="info-label">Modelo do Chip & Cores</div>
+    <div class="info-value">%CHIP_MODELO% (%CHIP_CORES% Cores)</div>
+  </div>
+
+  <div class="info-group">
+    <div class="info-label">Memória RAM Livre</div>
+    <div class="info-value">%RAM_LIVRE% bytes</div>
+  </div>
+
+  <div class="info-group">
+    <div class="info-label">Tempo de Atividade (Uptime)</div>
+    <div class="info-value">%UPTIME%</div>
+  </div>
+
+  <div class="info-group">
+    <div class="info-label">Rede Wi-Fi Conectada</div>
+    <div class="info-value">%WIFI_SSID% (Sinal: %WIFI_RSSI% dBm)</div>
+  </div>
+
+  <div class="info-group">
+    <div class="info-label">Data & Hora Sincronizada</div>
+    <div class="info-value">%DATA_HORA%</div>
+  </div>
+
+  <a href="/info" class="btn">🔄 Atualizar Dados</a>
+</div>
+</body>
+</html>
+)rawliteral";
+
 #endif
