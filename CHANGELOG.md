@@ -10,8 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### 🎨 Added
 - **Enhanced README documentation** with real file contents and command details
+- **Automatic build-based versioning system** documentation (AAMMDD.HHMM format)
 - **Complete command reference** mapping all 30+ UDP commands with examples
 - **ASCII flowchart** for boot sequence and state transitions
+- **Mermaid sequence diagram** for UDP communication flow
 - **LED RGB state indicators** documentation with color codes and meanings
 - **Performance benchmarks** table with measured metrics
 - **Comprehensive troubleshooting** section with solutions for WiFi, AP, UDP, NTP and LED
@@ -19,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Hardware pinout table** with GPIO validation status
 - **NTP server list** and timezone configuration examples
 - **Web portal mockup** details for configuration and info screens
+- **Version verification examples** via UDP commands (version, build, info)
+- **Implementation details** of `obterVersaoAutomatica()` function from CommandHandler.h
 
 ### 🔄 Changed
 - Reorganized README structure for better navigation with jump links
@@ -27,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Updated performance metrics with realistic boot times and latencies
 - Reworked troubleshooting for quick diagnostics and solutions
 - Restructured security section with practical recommendations
+- Converted UDP communication diagram from ASCII to Mermaid sequence chart
+- Added detailed versioning system explanation with examples
 
 ### ✅ Fixed
 - README alignment with actual repository structure and file organization
@@ -34,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Documentation consistency between architecture and implementation
 - Portal web documentation with actual HTML template details
 - Hardware pinout validation status indicators
+- Versioning documentation now matches actual implementation
 
 ---
 
@@ -45,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Architecture diagram** showing module organization
 - **Mermaid flowchart** for boot sequence and state transitions
 - **Command reference** split into diagnostics, configuration and hardware control
+- **Automatic versioning system** based on compilation date/time
 - **Performance benchmarks** table
 - **Security advisory** section
 - **Resources links** for ESP32, M5Stack and tools
@@ -54,11 +62,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - README now includes interactive navigation links
 - Command examples with real usage patterns
 - Hardware pinning table with validated GPIO assignments
+- Version system uses `__DATE__` and `__TIME__` macros for automatic versioning
 
 ### 🐛 Fixed
 - README structure to match actual firmware capabilities
 - Corrected command examples to match implementation
 - Removed placeholder and outdated sections
+- Version format standardized to AAMMDD.HHMM
 
 ---
 
@@ -73,6 +83,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Hardware Control:** RGB LED (NeoPixel), status LED, user button, IR emitter
 - **Device Diagnostics:** CPU, RAM, flash, PSRAM, temperature, uptime, network metrics
 - **OTA Updates:** Over-The-Air firmware updates via ArduinoOTA
+- **Automatic Versioning:** Build-based version system (AAMMDD.HHMM format)
 - **Modular Architecture:** Separate header files for each component
 
 #### 📦 Components Included
@@ -81,7 +92,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `HardwareController.h` - LED RGB effects and GPIO management
 - `DeviceNetwork.h` - Wi‑Fi STA/AP, UDP server, OTA, web server
 - `NTPService.h` - NTP time synchronization with timezone/DST
-- `CommandHandler.h` - UDP command parsing and execution (300+ lines)
+- `CommandHandler.h` - UDP command parsing and execution with automatic versioning (300+ lines)
 
 #### 🎯 Capabilities
 - **AP Mode:** Captive portal on `http://192.168.4.1` with WiFi configuration
@@ -91,6 +102,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Timezone Support:** GMT-3 default (Brasília) with dynamic configuration
 - **Diagnostic Commands:** 30+ queries for comprehensive system status
 - **Breath Effect:** Customizable LED pulsing animation with configurable duration
+- **Automatic Build Versioning:** Version format `AAMMDD.HHMM` extracted from compilation timestamp
 
 #### 🎮 UDP Commands (30+)
 
@@ -99,6 +111,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 **Configuration:** reset_wifi, set_fuso, fuso_status, dst_on, dst_off, dst_status
 
 **Hardware:** led_on, led_off, set_rgb, set_breath, ir_tx
+
+#### 📦 Versioning System
+
+**Format:** `AAMMDD.HHMM` (Year-Month-Day.Hour-Minute)
+
+**Examples:**
+- `261005.2326` → Compiled on October 5, 2026 at 23:26
+- `261010.1430` → Compiled on October 10, 2026 at 14:30
+
+**Implementation:**
+- Function: `obterVersaoAutomatica()` in `CommandHandler.h` (lines 30-58)
+- Uses: `__DATE__` and `__TIME__` compiler macros
+- Automatic: No manual configuration required
+- Unique: Each build generates a different version
+- Zero overhead: Compiled at compile-time
+
+**Verification Commands:**
+- `version` → Returns formatted version (AAMMDD.HHMM)
+- `build` → Returns raw build date/time
+- `info` → Returns complete device information including version
 
 #### 🔒 Security Considerations
 - UDP communication (unencrypted) - local networks only
@@ -115,6 +147,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Wi‑Fi reconnection:** < 8 seconds
 - **Idle power consumption:** ~50mA @ 3.3V
 - **NTP sync time:** < 2s (first time)
+- **Version retrieval:** < 10ms (from cache)
 
 #### 🎨 Hardware Features
 - **LED RGB (NeoPixel):** GPIO 20 (data), GPIO 19 (enable)
