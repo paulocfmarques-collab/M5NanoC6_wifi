@@ -11,7 +11,7 @@
 
 **🚀 Firmware modular e eficiente para provisionamento Wi‑Fi, controle remoto UDP e monitoramento do M5NanoC6**
 
-[⭐ Features](#-recursos-principais) • [🚀 Quick Start](#-início-rápido) • [📡 API](#-protocolo-udp) • [🛠️ Hardware](#hardware-e-pinagem) • [📖 Docs](#-documentação)
+[⭐ Features](#-recursos-principais) • [🚀 Quick Start](#-início-rápido) • [📡 API](#-protocolo-udp) • [🛠️ Hardware](#-hardware-e-pinagem) • [📖 Docs](#-documentação)
 
 </div>
 
@@ -51,7 +51,7 @@ Desenvolvido em **C++17** com arquitetura modular para facilitar manutenção e 
 <td width="50%">
 
 ### 📡 Controle remoto
-- Gateway UDP **4210**
+- Gateway UDP **porta 4210**
 - Comandos textuais simples
 - Respostas estruturadas
 - Sem latência crítica
@@ -62,8 +62,8 @@ Desenvolvido em **C++17** com arquitetura modular para facilitar manutenção e 
 <td width="50%">
 
 ### 🎨 Hardware integrado
-- LED RGB para status
-- Botão de reset
+- LED RGB (NeoPixel) para status
+- Botão de usuário para reset
 - IR emitter (GPIO 3)
 - LED azul de status
 
@@ -71,10 +71,11 @@ Desenvolvido em **C++17** com arquitetura modular para facilitar manutenção e 
 <td width="50%">
 
 ### 📊 Monitoramento
-- CPU, RAM, flash
-- Uptime e reset reason
+- CPU, RAM, flash e PSRAM
+- Uptime e motivo de reset
 - Sinal Wi‑Fi (RSSI)
-- NTP sincronizado
+- Temperatura do processador
+- Sincronização NTP
 
 </td>
 </tr>
@@ -88,7 +89,7 @@ Desenvolvido em **C++17** com arquitetura modular para facilitar manutenção e 
 
 ```bash
 ✓ Arduino IDE ou PlatformIO
-✓ Placa M5NanoC6 (ESP32)
+✓ Placa M5NanoC6 (ESP32-C6)
 ✓ Cabo USB para gravação
 ✓ Bibliotecas: WiFi, WebServer, Preferences, Adafruit NeoPixel
 ```
@@ -115,7 +116,7 @@ Na primeira inicialização sem Wi‑Fi salvo:
 1. **Conecte** ao AP: `M5NanoC6_CONFIG`
 2. Abra no navegador: `http://192.168.4.1`
 3. Informe **SSID** e **senha**
-4. Clique **Salvar** → dispositivo reinicia
+4. Clique **Salvar** → dispositivo reinicia conectado
 
 > Serial: `115200 baud` exibe os logs de inicialização
 
@@ -137,102 +138,120 @@ M5NanoC6_wifi/
 
 ### Módulos principais
 
-| Arquivo | Responsabilidade |
-| :--- | :--- |
-| **M5NanoC6_wifi.ino** | Boot, loop, fluxo de execução |
-| **Config.h** | Pinos, porta UDP, fuso, HTML |
-| **HardwareController.h** | LED RGB, blink, botão, IR |
-| **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, OTA, web server |
-| **NTPService.h** | Sincronização de hora e timezone |
-| **CommandHandler.h** | Interpretação de comandos |
+| Arquivo | Responsabilidade | Principais funções |
+| :--- | :--- | :--- |
+| **M5NanoC6_wifi.ino** | Boot, loop, fluxo de execução | `setup()`, `loop()`, inicialização |
+| **Config.h** | Pinos, porta UDP, fuso, HTML | `PIN_*`, `UDP_PORT`, portal HTML |
+| **HardwareController.h** | LED RGB, botão, IR, efeitos | `setLedColor()`, `iniciarBreathAsync()`, `dispararPulsoIR()` |
+| **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, OTA, web server | `conectar()`, `iniciarUDP()`, `processarOTA()` |
+| **NTPService.h** | Sincronização de hora, timezone, DST | `begin()`, `getData()`, `getHora()` |
+| **CommandHandler.h** | Interpretação e execução de comandos UDP | `executar()` com 30+ comandos |
 
 ---
 
 ## 📡 Protocolo UDP
 
 **Porta:** `4210`  
-**Formato:** Texto simples  
+**Formato:** Texto simples (case-insensitive)  
 **Resposta:** UDP de volta ao cliente  
 
 ### Fluxo de comunicação
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant D as Dispositivo
-
-    C->>D: COMANDO
-    D-->>C: RESPOSTA
 ```
+┌──────────┐                          ┌────────────────┐
+│  Cliente │ ──────COMANDO────────→ │  M5NanoC6      │
+│          │                          │  (UDP Server)  │
+│          │ ←────RESPOSTA─────────  │                │
+└──────────┘                          └────────────────┘
+```
+
 ---
 
 ## 🎮 Tabela de comandos
 
-### Diagnósticos e monitoramento
+### 📊 Diagnósticos e monitoramento
 
 | Comando | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| `help` | Lista todos os comandos | `help` |
+| `help` | Lista todos os comandos disponíveis | `help` |
 | `info` | Status completo do dispositivo | `info` |
-| `status` | Resumo rápido | `status` |
-| `cpu` | Modelo, cores, frequência | `cpu` |
-| `ram` | Heap, memória livre | `ram` |
-| `flash` | Tamanho, velocidade | `flash` |
-| `temp` | Temperatura da CPU | `temp` |
-| `mac` | Endereço MAC | `mac` |
-| `net_info` | SSID, IP, gateway, RSSI | `net_info` |
-| `time` | Hora atual (NTP) | `time` |
-| `date` | Data atual (NTP) | `date` |
-| `uptime` | Tempo de atividade | `uptime` |
+| `status` | Resumo rápido da saúde do sistema | `status` |
+| `cpu` | Modelo, cores, frequência do processador | `cpu` |
+| `ram` | Heap livre, utilização de memória RAM | `ram` |
+| `flash` | Tamanho, velocidade, utilização | `flash` |
+| `psram` | Informações de PSRAM (se disponível) | `psram` |
+| `temp` | Temperatura da CPU em °C | `temp` |
+| `mac` | Endereço MAC do dispositivo | `mac` |
+| `net_info` | SSID, IP, gateway, DNS, RSSI | `net_info` |
+| `time` | Hora atual sincronizada via NTP | `time` |
+| `date` | Data atual sincronizada via NTP | `date` |
+| `uptime` | Tempo de atividade em segundos | `uptime` |
 | `reason` | Motivo do último reset | `reason` |
-| `version` | Versão do firmware | `version` |
-| `build` | Data/hora de compilação | `build` |
-| `alive` | Verificação de presença | `alive` |
-| `psram` | Estado de PSRAM | `psram` |
-| `ota_info` | Info do servidor OTA | `ota_info` |
+| `version` | Versão do firmware (AAMMDD.HHMM) | `version` |
+| `build` | Data e hora de compilação | `build` |
+| `alive` | Verificação de presença + IP | `alive` |
+| `ota_info` | Informações do servidor OTA | `ota_info` |
 
-### Configuração e hardware
+### ⚙️ Configuração e NTP
 
 | Comando | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| `reset_wifi` | Limpa Wi‑Fi e reinicia | `reset_wifi` |
-| `set_fuso` | Define timezone | `set_fuso:-3` |
-| `fuso_status` | Mostra fuso atual | `fuso_status` |
+| `set_fuso:<valor>` | Define fuso horário (GMT±XX) | `set_fuso:-3` |
+| `fuso_status` | Mostra fuso horário atual | `fuso_status` |
 | `dst_on` | Ativa horário de verão | `dst_on` |
 | `dst_off` | Desativa horário de verão | `dst_off` |
 | `dst_status` | Verifica status de DST | `dst_status` |
-| `led_on` | Liga LED em branco | `led_on` |
-| `led_off` | Desliga LED | `led_off` |
-| `set_rgb` | Define cor do LED | `set_rgb:255,0,0` |
-| `ir_tx` | Dispara pulso IR | `ir_tx` |
+| `reset_wifi` | Limpa Wi‑Fi e reinicia em modo AP | `reset_wifi` |
 
-### Exemplo de uso
+### 🎨 Hardware e LED
+
+| Comando | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| `led_on` | Liga LED RGB em branco | `led_on` |
+| `led_off` | Desliga LED RGB | `led_off` |
+| `set_rgb:<R>,<G>,<B>` | Define cor RGB do LED (0-255 cada) | `set_rgb:255,0,0` |
+| `set_breath:<R>,<G>,<B>,<MS>` | Ativa efeito de respiração com ciclo customizado | `set_breath:0,255,255,2000` |
+| `ir_tx` | Dispara pulso infravermelho de 38kHz | `ir_tx` |
+
+### 💡 Exemplos de uso
 
 ```bash
-# Verificar status
+# Verificar status rápido
 nc -u 192.168.1.100 4210 <<< "status"
 
-# Consultar hora
+# Consultar informações de rede
+nc -u 192.168.1.100 4210 <<< "net_info"
+
+# Consultar hora sincronizada
 nc -u 192.168.1.100 4210 <<< "time"
 
 # Ligar LED em vermelho
 nc -u 192.168.1.100 4210 <<< "set_rgb:255,0,0"
 
-# Mudar timezone
+# Ativar efeito de respiração azul em 2 segundos
+nc -u 192.168.1.100 4210 <<< "set_breath:0,0,255,2000"
+
+# Mudar timezone para GMT-5
 nc -u 192.168.1.100 4210 <<< "set_fuso:-5"
+
+# Ativar horário de verão
+nc -u 192.168.1.100 4210 <<< "dst_on"
+
+# Verificar informações de RAM
+nc -u 192.168.1.100 4210 <<< "ram"
 ```
 
 ---
 
 ## 🛠️ Hardware e pinagem
 
-| Sinal | GPIO | Função |
-| :--- | :---: | :--- |
-| LED RGB (data) | 20 | Dados do NeoPixel |
-| LED RGB (enable) | 19 | Habilita barramento |
-| LED Status (azul) | 7 | Indicador visual |
-| Botão usuário | 9 | Reset Wi‑Fi |
-| IR TX | 3 | Emissor infravermelho |
+| Sinal | GPIO | Função | Status |
+| :--- | :---: | :--- | :--- |
+| LED RGB (data) | 20 | Pino de dados do NeoPixel | ✅ Validado |
+| LED RGB (enable) | 19 | Habilita barramento do LED RGB | ✅ Validado |
+| LED Status (azul) | 7 | Indicador visual de status | ✅ Validado |
+| Botão usuário | 9 | Reset Wi‑Fi (pressionado > 3s) | ✅ Validado |
+| IR TX | 3 | Emissor infravermelho 38kHz | ✅ Validado |
 
 **Configuração validada para:** M5NanoC6 com ESP32-C6
 
@@ -240,41 +259,60 @@ nc -u 192.168.1.100 4210 <<< "set_fuso:-5"
 
 ## 🔄 Fluxo de boot
 
-```mermaid
-graph TD
-    A["🔌 Power On"] --> B["⚙️ Init Hardware"]
-    B --> C["📖 Ler Preferences"]
-    C --> D{"Tem Wi-Fi salvo?"}
-    
-    D -->|Sim| E["🔗 WiFi.begin"]
-    E --> F{"Conectou?"}
-    F -->|Sim| G["🚀 UDP Ready"]
-    F -->|Não| H["AP Mode"]
-    
-    D -->|Não| H
-    H --> I["📡 SoftAP Config"]
-    I --> J["🌐 Portal Web"]
-    J --> K["💾 Salva SSID"]
-    K --> L["🔄 Restart"]
-    
-    G --> M["🕐 NTP Sync"]
-    M --> N["✅ Sistema pronto"]
+```
+┌─────────────────────┐
+│   🔌 Power On       │
+└──────────┬──────────┘
+           ↓
+┌─────────────────────┐
+│ ⚙️  Init Hardware   │ (Serial, GPIO, LED)
+└──────────┬──────────┘
+           ↓
+┌─────────────────────┐
+│ 📖 Ler Preferences  │ (SSID/Senha salvo?)
+└──────────┬──────────┘
+           ↓
+      ┌────┴─────┐
+      ↓          ↓
+   [Sim]       [Não]
+      ↓          ↓
+   WiFi.      SoftAP
+   begin()     Mode
+      ↓          ↓
+   Conectou?  Portal Web
+      ↓          ↓
+   ┌─┴─┐      ┌────────────┐
+   ↓   ↓      │ Salva SSID │
+ [Sim][Não]   └─────┬──────┘
+   ↓    ↓           ↓
+   ↓   SoftAP    Restart
+   ↓    Mode        ↓
+   ↓    ↓      [Reconnect]
+   └───┬────┘
+       ↓
+┌─────────────────────┐
+│ 🕐 NTP Sync        │ (Hora + Timezone)
+└──────────┬──────────┘
+           ↓
+┌─────────────────────┐
+│ ✅ Sistema pronto  │ (UDP Ready)
+└─────────────────────┘
 ```
 
 ---
 
 ## 🎨 Estados visuais do LED
 
-O LED RGB indica o estado do sistema:
+O LED RGB indica o estado do sistema em tempo real:
 
-| Cor | Estado |
-| :--- | :--- |
-| 🟢 Verde | Wi‑Fi conectado, UDP pronto |
-| 🔵 Azul | Portal de configuração ativo |
-| 🟡 Amarelo | Tentativa de conexão Wi‑Fi |
-| 🔴 Vermelho | Falha de conexão / erro |
-| 🟣 Magenta | NTP sincronizado |
-| ⚪ Branco | Inicialização |
+| Cor | Estado | Descrição |
+| :--- | :--- | :--- |
+| 🟢 Verde | Wi‑Fi OK | Conectado e pronto para UDP |
+| 🔵 Azul | Portal Ativo | Modo AP aguardando configuração |
+| 🟡 Amarelo | Conectando | Tentativa de conexão Wi‑Fi |
+| 🔴 Vermelho | Falha | Erro de conexão ou falha crítica |
+| 🟣 Magenta | NTP Sync | Sincronização de hora bem-sucedida |
+| ⚪ Branco | Boot | Inicialização em progresso |
 
 ---
 
@@ -282,66 +320,88 @@ O LED RGB indica o estado do sistema:
 
 ### Tela de configuração (AP Mode)
 
-Quando sem Wi‑Fi salvo, acesse:
+Quando o dispositivo inicializa sem Wi‑Fi salvo, um portal captivo é ativado em:
 
 ```
 http://192.168.4.1
 ```
 
-**Campos:**
-- SSID da rede
-- Senha Wi‑Fi
-
-**Ação:** Salva em Preferences e reinicia automaticamente
+**Interface:**
+- Campo SSID: Nome da rede Wi‑Fi
+- Campo Senha: Senha da rede
+- Botão Salvar: Persiste em Preferences e reinicia
 
 ### Painel de informações (STA Mode)
 
-Quando conectado, acesse o painel para visualizar:
+Quando conectado em modo normal, acesse:
 
-- Chip e cores
-- RAM livre
-- Uptime
-- SSID conectado + RSSI
-- Data e hora sincronizadas
+```
+http://<IP_LOCAL>/info
+```
+
+Para visualizar:
+- Chip modelo e cores
+- RAM livre em KB
+- Tempo de atividade (Uptime)
+- SSID e sinal (RSSI)
+- Data e hora NTP sincronizadas
+- Botão de refresh automático
 
 ---
 
 ## ⏰ Sincronização NTP
 
-O sistema sincroniza automaticamente com:
+O sistema sincroniza automaticamente com servidores NTP públicos:
 
-- `a.st1.ntp.br`
-- `pool.ntp.org`
-- `time.nist.gov`
+- `a.st1.ntp.br` (Brasil)
+- `pool.ntp.org` (Pool global)
+- `time.nist.gov` (NIST - EUA)
 
 **Fuso padrão:** `GMT-3` (Brasília)
 
-Altere com: `set_fuso:-5`  
-Ative DST com: `dst_on`
+**Configurar timezone:**
+```bash
+nc -u 192.168.1.100 4210 <<< "set_fuso:-5"
+```
+
+**Ativar DST (Daylight Saving Time):**
+```bash
+nc -u 192.168.1.100 4210 <<< "dst_on"
+```
 
 ---
 
 ## 🔧 Troubleshooting
 
 ### Wi‑Fi não conecta
-- ✓ Verifique SSID e senha
-- ✓ Use `reset_wifi` para limpar
+- ✓ Verifique SSID e senha digitadas corretamente
+- ✓ Use comando `reset_wifi` para limpar credenciais salvas
 - ✓ Confirme alcance do roteador
+- ✓ Verifique serial em 115200 baud para logs de erro
 
-### AP não aparece
-- ✓ Reinicie o dispositivo
+### AP não aparece na busca de redes
+- ✓ Reinicie o dispositivo (desconecte/reconecte USB)
 - ✓ Verifique serial em 115200 baud
-- ✓ Confirme GPIO 19 e 20 funcionando
+- ✓ Confirme GPIO 19 e 20 funcionando (LEDs piscam)
+- ✓ Tente resetar com botão por >3 segundos
 
 ### UDP sem resposta
-- ✓ Confirme IP do dispositivo com `net_info`
-- ✓ Verifique porta 4210 liberada
-- ✓ Teste com `ping` ou `alive`
+- ✓ Confirme IP do dispositivo: `nc -u 192.168.1.100 4210 <<< "alive"`
+- ✓ Verifique porta 4210 liberada no firewall
+- ✓ Teste com `ping` primeiro para confirmar alcance
+- ✓ Verifique serial para erros de parsing
 
 ### NTP não sincroniza
-- ✓ Confirme acesso à internet
-- ✓ Ajuste timezone com `set_fuso`
-- ✓ Verifique DNS e firewall
+- ✓ Confirme acesso à internet (faz ping em 8.8.8.8?)
+- ✓ Ajuste timezone com `set_fuso` se necessário
+- ✓ Verifique configuração de DNS no roteador
+- ✓ Firewall pode estar bloqueando porta 123 UDP
+
+### LED RGB não responde
+- ✓ Verifique GPIO 19 e 20 em Config.h
+- ✓ Confirme pin de dados do NeoPixel conectado
+- ✓ Teste com comando simples: `led_on`
+- ✓ Verifique tensão de alimentação (5V recomendado)
 
 ---
 
@@ -349,22 +409,31 @@ Ative DST com: `dst_on`
 
 | Métrica | Valor |
 | :--- | :--- |
-| **Boot time** | < 3s (com Wi‑Fi) |
+| **Boot time** | < 3s (com Wi‑Fi salvo) |
 | **UDP latency** | < 50ms |
-| **RAM utilizada** | ~60KB |
-| **Flash utilizada** | ~350KB |
+| **RAM utilizada** | ~60KB (heap livre) |
+| **Flash utilizada** | ~350KB (~1% da flash) |
 | **Wi‑Fi reconnect** | < 8s |
+| **Consumo (idle)** | ~50mA @ 3.3V |
+| **NTP sync time** | < 2s (primeira vez) |
 
 ---
 
 ## 🔐 Notas de segurança
 
-⚠️ **Este projeto é para redes locais confiáveis:**
+⚠️ **Este projeto é otimizado para redes locais confiáveis:**
 
-- UDP **não é criptografado**
-- Portal web **sem autenticação** padrão
-- Não exponha na internet pública
-- Proteja com firewall e VPN se necessário
+- ⚠️ UDP **não é criptografado** - comunique apenas em LAN
+- ⚠️ Portal web **sem autenticação** por padrão
+- ⚠️ Não exponha à internet pública sem proteção
+- ⚠️ Proteja com firewall e considere VPN para acesso remoto
+
+**Melhorias recomendadas para produção:**
+1. Implementar autenticação HTTP Basic no portal web
+2. Usar HTTPS com certificado auto-assinado
+3. Validar comandos UDP com checksums
+4. Implementar rate-limiting
+5. Logs de auditoria para todas as operações
 
 ---
 
@@ -376,6 +445,8 @@ Ative DST com: `dst_on`
 | **ESP32 Specs** | https://www.espressif.com/en/products/socs/esp32 |
 | **Arduino IDE** | https://www.arduino.cc/en/software |
 | **PlatformIO** | https://platformio.org/ |
+| **NeoPixel Guide** | https://learn.adafruit.com/adafruit-neopixel-uberguide |
+| **UDP Protocol** | https://en.wikipedia.org/wiki/User_Datagram_Protocol |
 
 ---
 
@@ -384,21 +455,19 @@ Ative DST com: `dst_on`
 Tem uma ideia? Achou um bug? Quer melhorar?
 
 1. **Fork** o repositório
-2. Crie uma **branch** com sua feature
-3. **Commit** suas mudanças
-4. Abra um **Pull Request**
-
-```bash
-git checkout -b feature/sua-ideia
-git commit -m "Adiciona sua feature"
-git push origin feature/sua-ideia
-```
+2. Crie uma **branch** com sua feature: `git checkout -b feature/sua-ideia`
+3. **Commit** suas mudanças: `git commit -m "Adiciona sua feature"`
+4. Faça **push**: `git push origin feature/sua-ideia`
+5. Abra um **Pull Request** com descrição clara
 
 ---
 
 ## 📄 Licença
 
-Este repositório ainda não possui licença explícita. Para publicar oficialmente, considere adicionar **MIT**, **Apache 2.0** ou **GPL**.
+Este repositório ainda não possui licença explícita. Para publicar oficialmente, considere adicionar uma das seguintes:
+- **MIT** - Permissiva, simples
+- **Apache 2.0** - Permissiva com proteção de patentes
+- **GPL 3.0** - Copyleft, código aberto obrigatório
 
 ---
 
