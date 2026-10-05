@@ -34,7 +34,7 @@ void setup() {
 }
 
 void loop() {
-    hardware.atualizarBlink();
+    hardware.atualizarEfeitos();
     
     network.processarOTA(); 
     network.processarWebServer(); 

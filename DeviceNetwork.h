@@ -193,7 +193,7 @@ public:
     void processarWebServer() {
         server.handleClient();
         if (modoAP) {
-            hardware.atualizarBlink();
+            hardware.atualizarEfeitos(); // Atualizado aqui também
         }
     }
 

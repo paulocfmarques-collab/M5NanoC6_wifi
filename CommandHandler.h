@@ -26,6 +26,36 @@ private:
             default: return "Desconhecido";
         }
     }
+    
+    static String obterVersaoAutomatica() {
+        // Extração matemática da Data (AAMMDD)
+        int ano = ((__DATE__[9] - '0') * 10) + (__DATE__[10] - '0');
+        
+        int mes = (__DATE__[0] == 'J' && __DATE__[1] == 'a' && __DATE__[2] == 'n') ? 1 :
+                  (__DATE__[0] == 'F')                                             ? 2 :
+                  (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'r') ? 3 :
+                  (__DATE__[0] == 'A' && __DATE__[1] == 'p')                       ? 4 :
+                  (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'y') ? 5 :
+                  (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'n') ? 6 :
+                  (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'l') ? 7 :
+                  (__DATE__[0] == 'A' && __DATE__[1] == 'u')                       ? 8 :
+                  (__DATE__[0] == 'S')                                             ? 9 :
+                  (__DATE__[0] == 'O')                                             ? 10 :
+                  (__DATE__[0] == 'N')                                             ? 11 :
+                  (__DATE__[0] == 'D')                                             ? 12 : 0;
+                  
+        int dia = (__DATE__[4] == ' ' ? 0 : __DATE__[4] - '0') * 10 + (__DATE__[5] - '0');
+
+        // Extração matemática do Horário (HHMM)
+        int hora   = ((__TIME__[0] - '0') * 10) + (__TIME__[1] - '0');
+        int minuto = ((__TIME__[3] - '0') * 10) + (__TIME__[4] - '0');
+
+        // Monta a string de forma segura usando buffers de formatação estáveis
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%02d%02d%02d.%02d.%02d", ano, mes, dia, hora, minuto);
+        
+        return String(buffer);
+    }
 
 public:
 
@@ -36,34 +66,35 @@ public:
         if (cmd == "help") {
             resposta = "==============================================\n"
                       "Comandos Disponiveis:\n"
-                      "PING             - Teste de Conexao\n"
-                      "RESET_WIFI       - Reinicia configuracoes de rede\n"
-                      "TIME             - Retorna hora e data atual\n"
-                      "DATE             - Retorna apenas a data atual\n"
-                      "DST_STATUS       - Verifica status do horario de verao\n"
-                      "FUSO_STATUS      - Verifica fuso horario atual\n"
-                      "DST_ON           - Ativa horario de verao\n"
-                      "DST_OFF          - Desativa horario de verao\n"
-                      "SET_FUSO:<valor> - Define novo fuso horario (Ex: SET_FUSO:-3)\n"
-                      "SET_RGB:R,G,B    - Define cor do LED RGB (Ex: SET_RGB:255,0,0)\n"
-                      "LED_ON           - Liga LED RGB em branco\n"
-                      "LED_OFF          - Desliga LED RGB\n"
-                      "IR_TX            - Dispara pulso infravermelho\n"
-                      "OTA_INFO         - Informacoes do servidor OTA\n"
-                      "ALIVE            - Verifica se o dispositivo esta vivo\n"
-                      "INFO             - Informacoes detalhadas do dispositivo\n"
-                      "REASON           - Motivo do ultimo reset\n"
-                      "VERSION          - Versao do firmware\n"
-                      "BUILD            - Data e hora da compilacao\n"
-                      "STATUS           - Status geral do dispositivo\n"
-                      "CPU              - Informacoes do processador\n"
-                      "FLASH            - Informacoes da memoria flash\n"
-                      "RAM              - Informacoes da memoria RAM\n"
-                      "NET_INFO         - Informacoes da rede\n"
-                      "TEMP             - Temperatura do processador\n"
-                      "MAC              - Endereco MAC do dispositivo\n"
-                      "PSRAM            - Informacoes da memoria PSRAM\n"
-                      "UPTIME           - Tempo de atividade do dispositivo\n"
+                      "PING                 - Teste de Conexao\n"
+                      "RESET_WIFI           - Reinicia configuracoes de rede\n"
+                      "TIME                 - Retorna hora e data atual\n"
+                      "DATE                 - Retorna apenas a data atual\n"
+                      "DST_STATUS           - Verifica status do horario de verao\n"
+                      "FUSO_STATUS          - Verifica fuso horario atual\n"
+                      "DST_ON               - Ativa horario de verao\n"
+                      "DST_OFF              - Desativa horario de verao\n"
+                      "SET_FUSO:<valor>     - Define novo fuso horario (Ex: SET_FUSO:-3)\n"
+                      "SET_RGB:R,G,B        - Define cor do LED RGB (Ex: SET_RGB:255,0,0)\n"
+                      "LED_ON               - Liga LED RGB em branco\n"
+                      "LED_OFF              - Desliga LED RGB\n"
+                      "IR_TX                - Dispara pulso infravermelho\n"
+                      "OTA_INFO             - Informacoes do servidor OTA\n"
+                      "ALIVE                - Verifica se o dispositivo esta vivo\n"
+                      "INFO                 - Informacoes detalhadas do dispositivo\n"
+                      "REASON               - Motivo do ultimo reset\n"
+                      "VERSION              - Versao do firmware\n"
+                      "BUILD                - Data e hora da compilacao\n"
+                      "STATUS               - Status geral do dispositivo\n"
+                      "CPU                  - Informacoes do processador\n"
+                      "FLASH                - Informacoes da memoria flash\n"
+                      "RAM                  - Informacoes da memoria RAM\n"
+                      "NET_INFO             - Informacoes da rede\n"
+                      "TEMP                 - Temperatura do processador\n"
+                      "MAC                  - Endereco MAC do dispositivo\n"
+                      "PSRAM                - Informacoes da memoria PSRAM\n"
+                      "UPTIME               - Tempo de atividade do dispositivo\n"
+                      "SET_BREATH:R,G,B,MS  - Ativa respiracao com tempo customizado\n"
                       "==============================================";
             network.responderUDP(resposta + "\n");
         }
@@ -74,7 +105,7 @@ public:
 
             resposta = "===== DEVICE INFO =====\n"
                        "Hostname: ESP32_CENTRAL\n"
-                       "Firmware: 1.0.0\n"
+                       "Firmware: " + obterVersaoAutomatica() + "\n"
                        "Build: " + String(__DATE__) + " " + String(__TIME__) + "\n" +
                        "SSID: " + WiFi.SSID() + "\n" +
                        "IP: " + WiFi.localIP().toString() + "\n" +
@@ -98,7 +129,7 @@ public:
             network.responderUDP(resposta + "\n");
         }
         else if (cmd == "version") {
-            resposta = "Versao Firmware: v1.0.0";
+            resposta = "Versao Firmware: " + obterVersaoAutomatica();
             network.responderUDP(resposta + "\n");
         }
         else if (cmd == "build") {
@@ -183,6 +214,35 @@ public:
         else if (cmd == "led_off") {
             hardware.setLedColor(0, 0, 0, 0); 
             network.responderUDP("LED desligado\n");
+        }
+        else if (cmd.startsWith("set_breath")) {
+            int p = cmd.indexOf(':');
+            if (p > 0) {
+                String valores = cmd.substring(p + 1);
+                
+                int idx1 = valores.indexOf(',');
+                int idx2 = valores.indexOf(',', idx1 + 1);
+                int idx3 = valores.indexOf(',', idx2 + 1);
+                
+                if (idx1 > 0 && idx2 > idx1 && idx3 > idx2) {
+                    uint8_t r = valores.substring(0, idx1).toInt();
+                    uint8_t g = valores.substring(idx1 + 1, idx2).toInt();
+                    uint8_t b = valores.substring(idx2 + 1, idx3).toInt();
+                    unsigned long tempoMs = (unsigned long)valores.substring(idx3 + 1).toInt();
+                    
+                    if (tempoMs < 100) tempoMs = 100; // Evita valores zerados ou excessivamente rápidos
+                    
+                    hardware.iniciarBreathAsync(r, g, b, tempoMs, 40);
+                    
+                    char buffer[128]; // Buffer com tamanho definido corretamente
+                    snprintf(buffer, sizeof(buffer), "Efeito Breath ativo -> R:%d G:%d B:%d | Ciclo: %lu ms\n", r, g, b, tempoMs);
+                    network.responderUDP(String(buffer));
+                } else {
+                    network.responderUDP("Erro: Use SET_BREATH:R,G,B,MS (Ex: SET_BREATH:0,255,255,2000)\n");
+                }
+            } else {
+                network.responderUDP("Erro: Parametros ausentes. Ex: SET_BREATH:0,255,255,2000\n");
+            }
         }
         else if (cmd == "ir_tx") {
             hardware.dispararPulsoIR();
