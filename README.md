@@ -163,7 +163,7 @@ sequenceDiagram
 
     C->>D: COMANDO
     D-->>C: RESPOSTA
-
+```
 ---
 
 ## 🎮 Tabela de comandos
