@@ -157,12 +157,14 @@ M5NanoC6_wifi/
 
 ### Fluxo de comunicação
 
-```
-┌──────────┐                          ┌────────────────┐
-│  Cliente │ ──────COMANDO────────→ │  M5NanoC6      │
-│          │                          │  (UDP Server)  │
-│          │ ←────RESPOSTA─────────  │                │
-└──────────┘                          └────────────────┘
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant M5NanoC6
+    
+    Cliente->>M5NanoC6: COMANDO (UDP)
+    M5NanoC6->>M5NanoC6: Parse & Executar
+    M5NanoC6-->>Cliente: RESPOSTA (UDP)
 ```
 
 ---
@@ -259,44 +261,25 @@ nc -u 192.168.1.100 4210 <<< "ram"
 
 ## 🔄 Fluxo de boot
 
-```
-┌─────────────────────┐
-│   🔌 Power On       │
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ ⚙️  Init Hardware   │ (Serial, GPIO, LED)
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ 📖 Ler Preferences  │ (SSID/Senha salvo?)
-└──────────┬──────────┘
-           ↓
-      ┌────┴─────┐
-      ↓          ↓
-   [Sim]       [Não]
-      ↓          ↓
-   WiFi.      SoftAP
-   begin()     Mode
-      ↓          ↓
-   Conectou?  Portal Web
-      ↓          ↓
-   ┌─┴─┐      ┌────────────┐
-   ↓   ↓      │ Salva SSID │
- [Sim][Não]   └─────┬──────┘
-   ↓    ↓           ↓
-   ↓   SoftAP    Restart
-   ↓    Mode        ↓
-   ↓    ↓      [Reconnect]
-   └───┬────┘
-       ↓
-┌─────────────────────┐
-│ 🕐 NTP Sync        │ (Hora + Timezone)
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ ✅ Sistema pronto  │ (UDP Ready)
-└─────────────────────┘
+```mermaid
+graph TD
+    A["🔌 Power On"] --> B["⚙️  Init Hardware"]
+    B --> C["📖 Ler Preferences"]
+    C --> D{"Tem Wi-Fi salvo?"}
+    
+    D -->|Sim| E["🔗 WiFi.begin"]
+    E --> F{"Conectou?"}
+    F -->|Sim| G["🚀 UDP Ready"]
+    F -->|Não| H["AP Mode"]
+    
+    D -->|Não| H
+    H --> I["📡 SoftAP Config"]
+    I --> J["🌐 Portal Web"]
+    J --> K["💾 Salva SSID"]
+    K --> L["🔄 Restart"]
+    
+    G --> M["🕐 NTP Sync"]
+    M --> N["✅ Sistema pronto"]
 ```
 
 ---
