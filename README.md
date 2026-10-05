@@ -122,6 +122,92 @@ Na primeira inicialização sem Wi‑Fi salvo:
 
 ---
 
+## 📦 Versionamento automático
+
+O firmware usa **versionamento baseado na data e hora de compilação**, sem necessidade de configuração manual.
+
+### Formato de versão
+
+**Padrão:** `AAMMDD.HHMM` (Ano-Mês-Dia.Hora-Minuto)
+
+| Componente | Formato | Exemplo | Descrição |
+| :--- | :--- | :--- | :--- |
+| Ano | `AA` | `26` | Últimos 2 dígitos (2026) |
+| Mês | `MM` | `10` | 01-12 |
+| Dia | `DD` | `05` | 01-31 |
+| Hora | `HH` | `23` | 00-23 |
+| Minuto | `MM` | `26` | 00-59 |
+
+**Exemplos reais:**
+- `261005.2326` → Compilado em 05/10/2026 às 23:26
+- `261010.1430` → Compilado em 10/10/2026 às 14:30
+- `260905.0800` → Compilado em 05/09/2026 às 08:00
+
+### Como verificar
+
+**Via UDP:**
+```bash
+# Obter versão formatada
+nc -u 192.168.1.100 4210 <<< "version"
+
+# Resposta:
+# Versao Firmware: 261005.2326
+
+# Ou obter informações completas
+nc -u 192.168.1.100 4210 <<< "info"
+
+# Resposta inclui:
+# Firmware: 261005.2326
+# Build: Oct  5 2026 23:26
+```
+
+### Implementação técnica
+
+**Localização:** `CommandHandler.h` (linhas 30-58)
+
+**Função:** `obterVersaoAutomatica()`
+
+```cpp
+static String obterVersaoAutomatica() {
+    // Extração matemática da Data (AAMMDD)
+    int ano = ((__DATE__[9] - '0') * 10) + (__DATE__[10] - '0');
+    
+    int mes = (__DATE__[0] == 'J' && __DATE__[1] == 'a' && __DATE__[2] == 'n') ? 1 :
+              // ... (meses decodificados)
+              12 : 0;
+              
+    int dia = (__DATE__[4] == ' ' ? 0 : __DATE__[4] - '0') * 10 + (__DATE__[5] - '0');
+
+    // Extração matemática do Horário (HHMM)
+    int hora   = ((__TIME__[0] - '0') * 10) + (__TIME__[1] - '0');
+    int minuto = ((__TIME__[3] - '0') * 10) + (__TIME__[4] - '0');
+
+    // Monta a string: AAMMDD.HHMM
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%02d%02d%02d.%02d.%02d", 
+             ano, mes, dia, hora, minuto);
+    
+    return String(buffer);
+}
+```
+
+**Características:**
+- ✅ **Automático:** Usa macros `__DATE__` e `__TIME__` do compilador
+- ✅ **Sem dependências:** Não requer arquivo externo
+- ✅ **Zero overhead:** Compilado em tempo de compilação
+- ✅ **Único por build:** Cada compilação gera versão diferente
+- ✅ **Rastreável:** Data/hora exata de cada firmware
+
+### Comandos relacionados
+
+| Comando | Saída | Descrição |
+| :--- | :--- | :--- |
+| `version` | `261005.2326` | Versão formatada (AAMMDD.HHMM) |
+| `build` | `Oct  5 2026 23:26` | Data e hora bruta de compilação |
+| `info` | Relatório completo | Inclui versão, build e data/hora |
+
+---
+
 ## 🏗️ Arquitetura do projeto
 
 ```
@@ -145,7 +231,7 @@ M5NanoC6_wifi/
 | **HardwareController.h** | LED RGB, botão, IR, efeitos | `setLedColor()`, `iniciarBreathAsync()`, `dispararPulsoIR()` |
 | **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, OTA, web server | `conectar()`, `iniciarUDP()`, `processarOTA()` |
 | **NTPService.h** | Sincronização de hora, timezone, DST | `begin()`, `getData()`, `getHora()` |
-| **CommandHandler.h** | Interpretação e execução de comandos UDP | `executar()` com 30+ comandos |
+| **CommandHandler.h** | Interpretação e execução de comandos UDP | `executar()` com 30+ comandos, `obterVersaoAutomatica()` |
 
 ---
 
@@ -218,6 +304,9 @@ sequenceDiagram
 ### 💡 Exemplos de uso
 
 ```bash
+# Verificar versão do firmware
+nc -u 192.168.1.100 4210 <<< "version"
+
 # Verificar status rápido
 nc -u 192.168.1.100 4210 <<< "status"
 
