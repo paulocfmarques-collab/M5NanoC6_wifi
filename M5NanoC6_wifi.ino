@@ -1,59 +1,39 @@
-#include "Config.h"
 #include "HardwareController.h"
 #include "DeviceNetwork.h"
-#include "NTPService.h"
 #include "CommandHandler.h"
+#include "NTPService.h"
 
+// --- INSTÂNCIAS GLOBAIS REAIS (ADICIONE ESTAS 3 LINHAS ABAIXO DOS INCLUDES) ---
 HardwareController hardware;
 DeviceNetwork network;
 NTPService ntp;
 
-bool udpPronto = false;
-
 void setup() {
     Serial.begin(115200);
-    delay(400); 
     
+    // Inicializa os pinos e periféricos
     hardware.begin();
-
-    if (network.conectar()) {
-        String sIP;
-
-        network.iniciarUDP();
-        if(network.getIP(sIP)) {
-            Serial.println(sIP);
-        }
-        udpPronto = true;
-
-        int fusoSalvo = network.obterFuso();
-        bool dstSalvo = network.obterDst();
-        ntp.begin(fusoSalvo, dstSalvo);
-    } else {
-        network.iniciarPortal();
-    }
+    
+    // Inicia a tentativa de conexão na lista circular por RSSI
+    network.conectar();
 }
 
 void loop() {
+    // Processa o servidor Web e o OTA
+    network.processarWebServer();
+    network.processarOTA();
+
+    // Atualiza efeitos visuais de LED (Blink/Breath) de forma assíncrona
     hardware.atualizarEfeitos();
-    
-    network.processarOTA(); 
-    network.processarWebServer(); 
 
-    if (!network.estaConectado()) {
-        udpPronto = false;
-    } 
-    else if (hardware.botaoPressionado()) {
-        network.resetarFabrica();
-    } 
-    else {
-        if (!udpPronto) {
-            network.iniciarUDP();
-            udpPronto = true;
-        }
+    // Monitora a conexão Wi-Fi e recupera via lista circular se cair
+    network.monitorarConexao();
 
-        String comando;
-        if (network.checarMensagensUDP(comando)) {
-            CommandHandler::executar(comando);
-        }
+    // Verifica mensagens UDP recebidas
+    String cmdUdp;
+    if (network.checarMensagensUDP(cmdUdp)) {
+        CommandHandler::executar(cmdUdp);
     }
+
+    delay(1); // Alimenta o Watchdog do ESP32
 }

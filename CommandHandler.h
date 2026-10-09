@@ -7,55 +7,6 @@
 #include "NTPService.h"
 
 class CommandHandler {
-private:
-
-    static String obterMotivoReset() {
-        esp_reset_reason_t motivo = esp_reset_reason();
-        switch (motivo) {
-            case ESP_RST_UNKNOWN: return "Desconhecido";
-            case ESP_RST_POWERON: return "Ligado";
-            case ESP_RST_EXT: return "Reset Externo";
-            case ESP_RST_SW: return "Reset por Software";
-            case ESP_RST_PANIC: return "Pânico";
-            case ESP_RST_INT_WDT: return "Watchdog Interno";
-            case ESP_RST_TASK_WDT: return "Watchdog de Tarefa";
-            case ESP_RST_WDT: return "Watchdog Geral";
-            case ESP_RST_DEEPSLEEP: return "Saída do Deep Sleep";
-            case ESP_RST_BROWNOUT: return "Brownout";
-            case ESP_RST_SDIO: return "Reset via SDIO";
-            default: return "Desconhecido";
-        }
-    }
-    
-    static String obterVersaoAutomatica() {
-        // Extração matemática da Data (AAMMDD)
-        int ano = ((__DATE__[9] - '0') * 10) + (__DATE__[10] - '0');
-        
-        int mes = (__DATE__[0] == 'J' && __DATE__[1] == 'a' && __DATE__[2] == 'n') ? 1 :
-                  (__DATE__[0] == 'F')                                             ? 2 :
-                  (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'r') ? 3 :
-                  (__DATE__[0] == 'A' && __DATE__[1] == 'p')                       ? 4 :
-                  (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'y') ? 5 :
-                  (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'n') ? 6 :
-                  (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'l') ? 7 :
-                  (__DATE__[0] == 'A' && __DATE__[1] == 'u')                       ? 8 :
-                  (__DATE__[0] == 'S')                                             ? 9 :
-                  (__DATE__[0] == 'O')                                             ? 10 :
-                  (__DATE__[0] == 'N')                                             ? 11 :
-                  (__DATE__[0] == 'D')                                             ? 12 : 0;
-                  
-        int dia = (__DATE__[4] == ' ' ? 0 : __DATE__[4] - '0') * 10 + (__DATE__[5] - '0');
-
-        // Extração matemática do Horário (HHMM)
-        int hora   = ((__TIME__[0] - '0') * 10) + (__TIME__[1] - '0');
-        int minuto = ((__TIME__[3] - '0') * 10) + (__TIME__[4] - '0');
-
-        // Monta a string de forma segura usando buffers de formatação estáveis
-        char buffer[32];
-        snprintf(buffer, sizeof(buffer), "%02d%02d%02d.%02d.%02d", ano, mes, dia, hora, minuto);
-        
-        return String(buffer);
-    }
 
 public:
 
@@ -66,35 +17,22 @@ public:
         if (cmd == "help") {
             resposta = "==============================================\n"
                       "Comandos Disponiveis:\n"
-                      "PING                 - Teste de Conexao\n"
-                      "RESET_WIFI           - Reinicia configuracoes de rede\n"
-                      "TIME                 - Retorna hora e data atual\n"
-                      "DATE                 - Retorna apenas a data atual\n"
-                      "DST_STATUS           - Verifica status do horario de verao\n"
-                      "FUSO_STATUS          - Verifica fuso horario atual\n"
-                      "DST_ON               - Ativa horario de verao\n"
-                      "DST_OFF              - Desativa horario de verao\n"
-                      "SET_FUSO:<valor>     - Define novo fuso horario (Ex: SET_FUSO:-3)\n"
-                      "SET_RGB:R,G,B        - Define cor do LED RGB (Ex: SET_RGB:255,0,0)\n"
-                      "LED_ON               - Liga LED RGB em branco\n"
-                      "LED_OFF              - Desliga LED RGB\n"
-                      "IR_TX                - Dispara pulso infravermelho\n"
-                      "OTA_INFO             - Informacoes do servidor OTA\n"
-                      "ALIVE                - Verifica se o dispositivo esta vivo\n"
-                      "INFO                 - Informacoes detalhadas do dispositivo\n"
-                      "REASON               - Motivo do ultimo reset\n"
-                      "VERSION              - Versao do firmware\n"
-                      "BUILD                - Data e hora da compilacao\n"
-                      "STATUS               - Status geral do dispositivo\n"
-                      "CPU                  - Informacoes do processador\n"
-                      "FLASH                - Informacoes da memoria flash\n"
-                      "RAM                  - Informacoes da memoria RAM\n"
-                      "NET_INFO             - Informacoes da rede\n"
-                      "TEMP                 - Temperatura do processador\n"
-                      "MAC                  - Endereco MAC do dispositivo\n"
-                      "PSRAM                - Informacoes da memoria PSRAM\n"
-                      "UPTIME               - Tempo de atividade do dispositivo\n"
-                      "SET_BREATH:R,G,B,MS  - Ativa respiracao com tempo customizado\n"
+                      "--- Sistema ---\n"
+                      "INFO / STATUS / VERSION / BUILD / REASON\n"
+                      "REBOOT               - Reinicia o ESP32\n"
+                      "RESET_WIFI           - Apaga config de rede\n"
+                      "ALIVE                - Teste de presenca\n"
+                      "--- Hardware ---\n"
+                      "TEMP / CPU / RAM / HEAP / FLASH / UPTIME\n"
+                      "--- Rede ---\n"
+                      "NET_INFO / MAC / RSSI / IP\n"
+                      "--- Hora ---\n"
+                      "TIME / DATE / SET_FUSO:<n> / DST_ON / DST_OFF\n"
+                      "--- LED RGB ---\n"
+                      "LED_ON / LED_OFF / LED_BLINK[:ms] / SET_RGB:R,G,B\n"
+                      "SET_BREATH:R,G,B,MS\n"
+                      "--- Outros ---\n"
+                      "IR_TX                - Pulso infravermelho\n"
                       "==============================================";
             network.responderUDP(resposta + "\n");
         }
@@ -104,8 +42,8 @@ public:
             float flashLivre = (float)ESP.getFreeSketchSpace() / (1024.0 * 1024.0);
 
             resposta = "===== DEVICE INFO =====\n"
-                       "Hostname: ESP32_CENTRAL\n"
-                       "Firmware: " + obterVersaoAutomatica() + "\n"
+                       "Hostname: M5NanoC6\n"
+                       "Firmware: " + Config::obterVersaoAutomatica() + "\n"
                        "Build: " + String(__DATE__) + " " + String(__TIME__) + "\n" +
                        "SSID: " + WiFi.SSID() + "\n" +
                        "IP: " + WiFi.localIP().toString() + "\n" +
@@ -117,19 +55,19 @@ public:
                        "Data: " + dataStr + "\n" +
                        "Hora: " + horaStr + "\n" +
                        "Uptime: " + String(millis()) + " ms\n" +
-                       "Reset: " + obterMotivoReset() + "\n" + 
+                       "Reset: " + Config::obterMotivoReset() + "\n" + 
                        "=======================";
             network.responderUDP(resposta + "\n");
         }
         else if (cmd == "reason") {
             resposta = "===== ULTIMO RESET =====\n"
-                "Motivo: " + obterMotivoReset() + "\n"
+                "Motivo: " + Config::obterMotivoReset() + "\n"
                 "Uptime Atual: " + String(millis() / 1000) + " s\n"
                 "========================";
             network.responderUDP(resposta + "\n");
         }
         else if (cmd == "version") {
-            resposta = "Versao Firmware: " + obterVersaoAutomatica();
+            resposta = "Versao Firmware: " + Config::obterVersaoAutomatica();
             network.responderUDP(resposta + "\n");
         }
         else if (cmd == "build") {
@@ -145,18 +83,22 @@ public:
                 "\nHeap: " + String(heapKB) + " KB";
             network.responderUDP(resposta + "\n");
         }        
+        else if (cmd == "reboot") {
+            network.responderUDP("Reiniciando...\n");
+            delay(200);
+            ESP.restart();
+        }
+        else if (cmd == "heap") {
+            network.responderUDP("Heap livre: " + String(ESP.getFreeHeap() / 1024) + " KB\n");
+        }
+        else if (cmd == "rssi") {
+            network.responderUDP("RSSI: " + String(WiFi.RSSI()) + " dBm\n");
+        }
+        else if (cmd == "ip") {
+            network.responderUDP("IP: " + WiFi.localIP().toString() + "\n");
+        }
         else if (cmd == "reset_wifi") {
             network.resetarFabrica();
-        }
-        else if (cmd == "dst_status") {
-            bool dstAtivo = network.obterDst();
-            resposta = dstAtivo ? "Horario de Verao: ATIVADO" : "Horario de Verao: DESATIVADO";
-            network.responderUDP(resposta + "\n");
-        }
-        else if (cmd == "fuso_status") {
-            int fuso = network.obterFuso();
-            resposta = "Fuso Atual: GMT" + String(fuso);
-            network.responderUDP(resposta + "\n");
         }
         else if (cmd == "dst_on") {
             network.salvarDst(true);
@@ -215,6 +157,14 @@ public:
             hardware.setLedColor(0, 0, 0, 0); 
             network.responderUDP("LED desligado\n");
         }
+        else if (cmd.startsWith("led_blink")) {
+            unsigned long ms = 1000;
+            int p = cmd.indexOf(':');
+            if (p > 0) ms = (unsigned long)cmd.substring(p + 1).toInt();
+            if (ms < 50) ms = 50;
+            hardware.iniciarBlinkAsync(255, 255, 255, ms, 40);
+            network.responderUDP("LED piscando a cada " + String(ms) + " ms\n");
+        }
         else if (cmd.startsWith("set_breath")) {
             int p = cmd.indexOf(':');
             if (p > 0) {
@@ -247,12 +197,6 @@ public:
         else if (cmd == "ir_tx") {
             hardware.dispararPulsoIR();
             network.responderUDP("Pulso Infravermelho emitido\n");
-        }
-        else if (cmd == "ota_info") {
-            char buffer[128];
-            snprintf(buffer, sizeof(buffer), "Hostname OTA: M5NanoC6-Dispositivo\nIP Local: %s\nStatus: Pronto para gravacao\n",
-                     WiFi.localIP().toString().c_str());
-            network.responderUDP(String(buffer));
         }
         else if (cmd == "cpu") {
             resposta = "CPU:\nModelo: " + String(ESP.getChipModel()) + "\n" +
@@ -301,15 +245,6 @@ public:
         }
         else if (cmd == "alive") {
                 network.responderUDP("ip: " + WiFi.localIP().toString() + " - yes\n");
-        }
-        else if (cmd == "psram") {
-            bool psramPresente = ESP.getPsramSize() > 0;
-            resposta = "PSRAM:\nPSRAM Presente: " + String(psramPresente ? "SIM" : "NAO") + 
-                "\nTamanho PSRAM: " + String(ESP.getPsramSize() / 1024 / 1024) + " MB" +
-                "\nPSRAM Livre: " + String(ESP.getFreePsram() / 1024 / 1024) + " MB" +
-                "\nMaior Bloco Livre PSRAM: " + String(ESP.getMaxAllocPsram() / 1024 / 1024) + " MB" +
-                "\nPSRAM Utilizada: " + String(100.0 * (ESP.getPsramSize() - ESP.getFreePsram()) / ESP.getPsramSize()) + " %";
-            network.responderUDP(resposta + "\n");
         }
         else 
         {
