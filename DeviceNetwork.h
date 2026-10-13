@@ -70,7 +70,7 @@ private:
         // 2. Coleta dados de rede atuais
         String ssidAtual = (WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : "Desconectado";
         String rssiAtual = (WiFi.status() == WL_CONNECTED) ? String(WiFi.RSSI()) : "0";
-        String ntpStatusStr = ntp.isSincronizado() ? "Sincronizado ✔" : "Falhou ❌";
+        String ntpStatusStr = ntp.getStatus();
         String dataHoraStr = ntp.getHora() + " - " + ntp.getData();
 
         // 3. Substituições padrão do painel de hardware
@@ -387,6 +387,7 @@ public:
                 configurarRotasWeb();
                 server.begin();
                 iniciarUDP();
+                ntp.begin(obterFuso(), obterDst());
                 return; 
             }
             Serial.printf("[WIFI] Falha de autenticacao na rede: %s. Tentando proxima do ranking...\n", ssidAlvo.c_str());

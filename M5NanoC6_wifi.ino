@@ -28,6 +28,7 @@ void loop() {
 
     // Monitora a conexão Wi-Fi e recupera via lista circular se cair
     network.monitorarConexao();
+    ntp.atualizar();
 
     // Verifica mensagens UDP recebidas
     String cmdUdp;
