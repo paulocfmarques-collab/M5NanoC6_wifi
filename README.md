@@ -5,13 +5,13 @@
 [![Platform](https://img.shields.io/badge/Platform-ESP32-FF6F00?style=for-the-badge&logo=arduino&logoColor=white)](https://www.espressif.com/en/products/socs/esp32)
 [![Board](https://img.shields.io/badge/Board-M5NanoC6-8E24AA?style=for-the-badge&logo=m5stack&logoColor=white)](https://docs.m5stack.com/en/core/nanoC6)
 [![Connectivity](https://img.shields.io/badge/Wi--Fi-2.4GHz-00A3FF?style=for-the-badge&logo=wifi&logoColor=white)](https://www.wifi-alliance.com/)
-[![Protocol](https://img.shields.io/badge/Protocol-UDP%2FHTTP-4CAF50?style=for-the-badge&logo=internet-explorer&logoColor=white)](https://en.wikipedia.org/wiki/User_Datagram_Protocol)
+[![Protocol](https://img.shields.io/badge/Protocol-UDP%2FHTTP%2FBLE-4CAF50?style=for-the-badge&logo=internet-explorer&logoColor=white)](https://en.wikipedia.org/wiki/User_Datagram_Protocol)
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com/)
 [![License](https://img.shields.io/badge/License-Not%20Declared-red?style=for-the-badge)](LICENSE)
 
-**🚀 Firmware modular e eficiente para provisionamento Wi‑Fi, controle remoto UDP, OTA e monitoramento do M5NanoC6**
+**🚀 Firmware modular e eficiente para provisionamento Wi‑Fi, controle remoto UDP/Serial/BLE, painel web, LCD, métricas Prometheus, NTP, OTA e monitoramento do M5NanoC6**
 
-[⭐ Recursos](#-recursos-principais) • [🚀 Início rápido](#-início-rápido) • [📡 Protocolo UDP](#-protocolo-udp) • [🛠️ Hardware](#-hardware-e-pinagem) • [📖 Documentação](#-arquitetura-do-projeto)
+[⭐ Recursos](#-recursos-principais) • [🚀 Início rápido](#-início-rápido) • [📡 Protocolo UDP](#-protocolo-udp) • [🛠️ Hardware](#-hardware-e-pinagem) • [📖 Documentação](#-documentação-adicional)
 
 </div>
 
@@ -23,10 +23,12 @@ Este projeto é um **firmware production-ready** para o M5NanoC6, com arquitetur
 
 - `M5NanoC6_wifi.ino` para inicialização e loop principal
 - `Config.h` para pinos, porta UDP, fuso e utilitários
-- `HardwareController.h` para LED RGB, botão e IR
-- `DeviceNetwork.h` para Wi‑Fi, AP, portal web, UDP e OTA
+- `HardwareController.h` para LED RGB, botão, IR e LCD
+- `DeviceNetwork.h` para Wi‑Fi, AP, portal web, API, Prometheus e rede
 - `NTPService.h` para sincronização de tempo via NTP
-- `CommandHandler.h` para interpretação de comandos UDP
+- `CommandHandler.h` para interpretação de comandos UDP/Serial/BLE
+- `WebDashboard.h` para o painel web do dispositivo
+- `MetricsService.h` para exposição de métricas Prometheus
 
 ### O que o firmware oferece
 
@@ -34,10 +36,14 @@ Este projeto é um **firmware production-ready** para o M5NanoC6, com arquitetur
 - ✅ Armazenamento persistente de credenciais em `Preferences`
 - ✅ Reconexão automática e reset de fábrica
 - ✅ Controle remoto via **UDP na porta 4210**
+- ✅ Controle por **Serial** e **Bluetooth LE**
+- ✅ Painel web com status do sistema, rede, LCD, BLE e hardware
 - ✅ Diagnósticos de rede, CPU, RAM, flash e uptime
 - ✅ Sincronização **NTP** com suporte a timezone e DST
 - ✅ LED RGB para feedback visual do sistema
-- ✅ **OTA** (Over-The-Air) para atualizar sem cabo
+- ✅ **LCD 20×4** com informações do dispositivo e clima
+- ✅ **Prometheus** com endpoint `/metrics` e configuração web
+- ✅ **OTA** e ações remotas para atualização e gestão do dispositivo
 - ✅ Emissão de pulso infravermelho via GPIO
 
 Desenvolvido em **C++17** com foco em manutenção e extensão.
@@ -54,14 +60,14 @@ Desenvolvido em **C++17** com foco em manutenção e extensão.
 - Portal web captivo em modo AP
 - SSID/senha salvos em flash
 - Reconexão automática
-- Reset de fábrica via botão
+- Reset de fábrica via botão ou comando
 
 </td>
 <td width="50%">
 
 ### 📡 Controle remoto
 - Gateway UDP **porta 4210**
-- Comandos textuais simples
+- Comandos por **UDP, Serial e BLE**
 - Respostas estruturadas
 - Sem latência crítica
 
@@ -72,9 +78,10 @@ Desenvolvido em **C++17** com foco em manutenção e extensão.
 
 ### 🎨 Hardware integrado
 - LED RGB (NeoPixel) para status
-- Botão de usuário para reset
+- Botão de usuário para reset e alternância do LCD
 - IR emitter (GPIO 3)
 - LED azul de status
+- LCD 20×4 com interface I²C
 
 </td>
 <td width="50%">
@@ -85,6 +92,7 @@ Desenvolvido em **C++17** com foco em manutenção e extensão.
 - Sinal Wi‑Fi (RSSI)
 - Temperatura do processador
 - Sincronização NTP
+- Métricas Prometheus do dispositivo
 
 </td>
 </tr>
@@ -147,34 +155,6 @@ O firmware usa **versionamento baseado na data e hora de compilação**, sem nec
 | Hora | `HH` | `23` | 00-23 |
 | Minuto | `MM` | `26` | 00-59 |
 
-### Implementação técnica
-
-A versão automática é implementada em `Config.h` e usada por `CommandHandler.h`:
-
-```cpp
-static String obterVersaoAutomatica() {
-    int ano = ((__DATE__[9] - '0') * 10) + (__DATE__[10] - '0');
-    int mes = (__DATE__[0] == 'J' && __DATE__[1] == 'a' && __DATE__[2] == 'n') ? 1 :
-              (__DATE__[0] == 'F') ? 2 :
-              (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'r') ? 3 :
-              (__DATE__[0] == 'A' && __DATE__[1] == 'p') ? 4 :
-              (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'y') ? 5 :
-              (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'n') ? 6 :
-              (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'l') ? 7 :
-              (__DATE__[0] == 'A' && __DATE__[1] == 'u') ? 8 :
-              (__DATE__[0] == 'S') ? 9 :
-              (__DATE__[0] == 'O') ? 10 :
-              (__DATE__[0] == 'N') ? 11 : 12;
-    int dia = (__DATE__[4] == ' ' ? 0 : __DATE__[4] - '0') * 10 + (__DATE__[5] - '0');
-    int hora = ((__TIME__[0] - '0') * 10) + (__TIME__[1] - '0');
-    int minuto = ((__TIME__[3] - '0') * 10) + (__TIME__[4] - '0');
-
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%02d%02d%02d.%02d%02d", ano, mes, dia, hora, minuto);
-    return String(buffer);
-}
-```
-
 ### Comandos relacionados
 
 | Comando | Saída | Descrição |
@@ -191,10 +171,12 @@ static String obterVersaoAutomatica() {
 M5NanoC6_wifi/
 ├── 📄 M5NanoC6_wifi.ino ......... Entrada principal e loop
 ├── ⚙️  Config.h ................ Pinos, UDP, utilitários e constantes
-├── 🎨 HardwareController.h ...... RGB LED, botão, IR e efeitos
-├── 📡 DeviceNetwork.h ........... Wi‑Fi, AP, UDP, portal web e OTA
+├── 🎨 HardwareController.h ...... RGB LED, botão, IR e LCD
+├── 📡 DeviceNetwork.h ........... Wi‑Fi, AP, UDP, portal web, OTA e API
 ├── 🕐 NTPService.h ............. NTP, timezone e DST
-├── 💬 CommandHandler.h .......... Parser de comandos UDP
+├── 💬 CommandHandler.h .......... Parser de comandos UDP/Serial/BLE
+├── 📊 MetricsService.h .......... Exposição Prometheus
+├── 🌐 WebDashboard.h ............ HTML/CSS/JS do painel web
 └── 📖 README.md ................. Documentação
 ```
 
@@ -204,10 +186,12 @@ M5NanoC6_wifi/
 | :--- | :--- | :--- |
 | **M5NanoC6_wifi.ino** | Boot, loop, fluxo de execução | `setup()`, `loop()`, inicialização |
 | **Config.h** | Pinos, porta UDP, fuso, helpers | `PIN_*`, `UDP_PORT`, `obterMotivoReset()`, `obterVersaoAutomatica()` |
-| **HardwareController.h** | LED RGB, botão, IR, efeitos | `setLedColor()`, `iniciarBreathAsync()`, `dispararPulsoIR()` |
-| **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, OTA, web server | `conectar()`, `iniciarUDP()`, `processarOTA()` |
+| **HardwareController.h** | LED RGB, botão, IR, LCD e efeitos | `setLedColor()`, `iniciarBreathAsync()`, `dispararPulsoIR()` |
+| **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, portal, web, Prometheus | `conectar()`, `iniciarUDP()`, `processarOTA()` |
 | **NTPService.h** | Sincronização de hora, timezone, DST | `begin()`, `getData()`, `getHora()` |
-| **CommandHandler.h** | Interpretação e execução de comandos UDP | `executar()` com 30+ comandos, `obterVersaoAutomatica()` |
+| **CommandHandler.h** | Interpretação e execução de comandos | `executar()` com comandos por UDP/Serial/BLE |
+| **MetricsService.h** | Métricas Prometheus | `exposition()`, métricas do dispositivo |
+| **WebDashboard.h** | Painel web responsivo | `htmlInfoPage` |
 
 ---
 
@@ -317,8 +301,10 @@ nc -u 192.168.1.100 4210 <<< "ram"
 | LED RGB (data) | 20 | Pino de dados do NeoPixel | ✅ Validado |
 | LED RGB (enable) | 19 | Habilita barramento do LED RGB | ✅ Validado |
 | LED Status (azul) | 7 | Indicador visual de status | ✅ Validado |
-| Botão usuário | 9 | Reset Wi‑Fi (pressionado > 3s) | ✅ Validado |
+| Botão usuário | 9 | Reset Wi‑Fi (pressionado > 3s) e alternância do LCD | ✅ Validado |
 | IR TX | 3 | Emissor infravermelho 38kHz | ✅ Validado |
+| LCD SDA | 2 | Barramento I²C do display | ✅ Validado |
+| LCD SCL | 1 | Barramento I²C do display | ✅ Validado |
 
 **Configuração validada para:** M5NanoC6 com ESP32-C6
 
@@ -334,7 +320,7 @@ graph TD
     
     D -->|Sim| E["🔗 WiFi.begin"]
     E --> F{"Conectou?"}
-    F -->|Sim| G["🚀 UDP Ready"]
+    F -->|Sim| G["🚀 UDP / Web / Metrics Ready"]
     F -->|Não| H["AP Mode"]
     
     D -->|Não| H
@@ -355,7 +341,7 @@ O LED RGB indica o estado do sistema em tempo real:
 
 | Cor | Estado | Descrição |
 | :--- | :--- | :--- |
-| 🟢 Verde | Wi‑Fi OK | Conectado e pronto para UDP |
+| 🟢 Verde | Wi‑Fi OK | Conectado e pronto para UDP/Web |
 | 🔵 Azul | Portal Ativo | Modo AP aguardando configuração |
 | 🟡 Amarelo | Conectando | Tentativa de conexão Wi‑Fi |
 | 🔴 Vermelho | Falha | Erro de conexão ou falha crítica |
@@ -370,7 +356,7 @@ O LED RGB indica o estado do sistema em tempo real:
 
 Quando o dispositivo inicializa sem Wi‑Fi salvo, um portal captivo é ativado em:
 
-```
+```text
 http://192.168.4.1
 ```
 
@@ -383,7 +369,7 @@ http://192.168.4.1
 
 Quando conectado em modo normal, acesse:
 
-```
+```text
 http://<IP_LOCAL>/info
 ```
 
@@ -393,7 +379,17 @@ Para visualizar:
 - Tempo de atividade (Uptime)
 - SSID e sinal (RSSI)
 - Data e hora NTP sincronizadas
+- Estado do LCD, BLE e métricas do dispositivo
 - Botão de refresh automático
+
+### Painel de métricas Prometheus
+
+Acesse `http://<IP_LOCAL>/prometheus` para salvar:
+- host do servidor Prometheus
+- porta de coleta
+- intervalo de scrape
+
+O firmware expõe `/metrics` e gera um `prometheus.yml` para facilitar a configuração.
 
 ---
 
@@ -439,6 +435,16 @@ nc -u 192.168.1.100 4210 <<< "dst_on"
 - ✓ Teste com `ping` primeiro para confirmar alcance
 - ✓ Verifique serial para erros de parsing
 
+### BLE sem resposta
+- ✓ Confirme conexão ao serviço Nordic UART Service
+- ✓ Envie comandos terminados em LF
+- ✓ Aguarde a resposta antes de mandar o próximo comando
+
+### LCD não responde
+- ✓ Verifique SDA/SCL e alimentação do módulo
+- ✓ Confirme se o endereço I²C foi detectado corretamente
+- ✓ Use `LCD_ON` para reativar a tela
+
 ### NTP não sincroniza
 - ✓ Confirme acesso à internet (faz ping em 8.8.8.8?)
 - ✓ Ajuste timezone com `set_fuso` se necessário
@@ -478,23 +484,19 @@ nc -u 192.168.1.100 4210 <<< "dst_on"
 
 **Melhorias recomendadas para produção:**
 1. Implementar autenticação HTTP Basic no portal web
-2. Usar HTTPS com certificado auto-assinado
+2. Usar HTTPS com certificado autoassinado
 3. Validar comandos UDP com checksums
 4. Implementar rate-limiting
 5. Logs de auditoria para todas as operações
 
 ---
 
-## 📚 Recursos e links
+## 📚 Documentação adicional
 
-| Recurso | Link |
-| :--- | :--- |
-| **M5Stack Docs** | https://docs.m5stack.com/en/core/nanoC6 |
-| **ESP32 Specs** | https://www.espressif.com/en/products/socs/esp32 |
-| **Arduino IDE** | https://www.arduino.cc/en/software |
-| **PlatformIO** | https://platformio.org/ |
-| **NeoPixel Guide** | https://learn.adafruit.com/adafruit-neopixel-uberguide |
-| **UDP Protocol** | https://en.wikipedia.org/wiki/User_Datagram_Protocol |
+- `COMANDOS.md` — lista completa de comandos e rotas
+- `PROMETHEUS.md` — configuração e métricas Prometheus
+- `WebDashboard.h` — implementação do painel web
+- `MetricsService.h` — origem das métricas coletadas
 
 ---
 
