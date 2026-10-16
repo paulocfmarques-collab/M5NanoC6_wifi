@@ -9,9 +9,9 @@
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com/)
 [![License](https://img.shields.io/badge/License-Not%20Declared-red?style=for-the-badge)](LICENSE)
 
-**🚀 Firmware modular e eficiente para provisionamento Wi‑Fi, controle remoto UDP e monitoramento do M5NanoC6**
+**🚀 Firmware modular e eficiente para provisionamento Wi‑Fi, controle remoto UDP, OTA e monitoramento do M5NanoC6**
 
-[⭐ Features](#-recursos-principais) • [🚀 Quick Start](#-início-rápido) • [📡 API](#-protocolo-udp) • [🛠️ Hardware](#-hardware-e-pinagem) • [📖 Docs](#-documentação)
+[⭐ Recursos](#-recursos-principais) • [🚀 Início rápido](#-início-rápido) • [📡 Protocolo UDP](#-protocolo-udp) • [🛠️ Hardware](#-hardware-e-pinagem) • [📖 Documentação](#-arquitetura-do-projeto)
 
 </div>
 
@@ -19,7 +19,16 @@
 
 ## 📋 Visão geral
 
-Este é um **firmware production-ready** para o M5NanoC6 que oferece:
+Este projeto é um **firmware production-ready** para o M5NanoC6, com arquitetura modular separada nos arquivos do repositório:
+
+- `M5NanoC6_wifi.ino` para inicialização e loop principal
+- `Config.h` para pinos, porta UDP, fuso e utilitários
+- `HardwareController.h` para LED RGB, botão e IR
+- `DeviceNetwork.h` para Wi‑Fi, AP, portal web, UDP e OTA
+- `NTPService.h` para sincronização de tempo via NTP
+- `CommandHandler.h` para interpretação de comandos UDP
+
+### O que o firmware oferece
 
 - ✅ Provisionamento Wi‑Fi com portal web local
 - ✅ Armazenamento persistente de credenciais em `Preferences`
@@ -31,7 +40,7 @@ Este é um **firmware production-ready** para o M5NanoC6 que oferece:
 - ✅ **OTA** (Over-The-Air) para atualizar sem cabo
 - ✅ Emissão de pulso infravermelho via GPIO
 
-Desenvolvido em **C++17** com arquitetura modular para facilitar manutenção e extensão.
+Desenvolvido em **C++17** com foco em manutenção e extensão.
 
 ---
 
@@ -138,65 +147,33 @@ O firmware usa **versionamento baseado na data e hora de compilação**, sem nec
 | Hora | `HH` | `23` | 00-23 |
 | Minuto | `MM` | `26` | 00-59 |
 
-**Exemplos reais:**
-- `261005.2326` → Compilado em 05/10/2026 às 23:26
-- `261010.1430` → Compilado em 10/10/2026 às 14:30
-- `260905.0800` → Compilado em 05/09/2026 às 08:00
-
-### Como verificar
-
-**Via UDP:**
-```bash
-# Obter versão formatada
-nc -u 192.168.1.100 4210 <<< "version"
-
-# Resposta:
-# Versao Firmware: 261005.2326
-
-# Ou obter informações completas
-nc -u 192.168.1.100 4210 <<< "info"
-
-# Resposta inclui:
-# Firmware: 261005.2326
-# Build: Oct  5 2026 23:26
-```
-
 ### Implementação técnica
 
-**Localização:** `CommandHandler.h` (linhas 30-58)
-
-**Função:** `obterVersaoAutomatica()`
+A versão automática é implementada em `Config.h` e usada por `CommandHandler.h`:
 
 ```cpp
 static String obterVersaoAutomatica() {
-    // Extração matemática da Data (AAMMDD)
     int ano = ((__DATE__[9] - '0') * 10) + (__DATE__[10] - '0');
-    
     int mes = (__DATE__[0] == 'J' && __DATE__[1] == 'a' && __DATE__[2] == 'n') ? 1 :
-              // ... (meses decodificados)
-              12 : 0;
-              
+              (__DATE__[0] == 'F') ? 2 :
+              (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'r') ? 3 :
+              (__DATE__[0] == 'A' && __DATE__[1] == 'p') ? 4 :
+              (__DATE__[0] == 'M' && __DATE__[1] == 'a' && __DATE__[2] == 'y') ? 5 :
+              (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'n') ? 6 :
+              (__DATE__[0] == 'J' && __DATE__[1] == 'u' && __DATE__[2] == 'l') ? 7 :
+              (__DATE__[0] == 'A' && __DATE__[1] == 'u') ? 8 :
+              (__DATE__[0] == 'S') ? 9 :
+              (__DATE__[0] == 'O') ? 10 :
+              (__DATE__[0] == 'N') ? 11 : 12;
     int dia = (__DATE__[4] == ' ' ? 0 : __DATE__[4] - '0') * 10 + (__DATE__[5] - '0');
-
-    // Extração matemática do Horário (HHMM)
-    int hora   = ((__TIME__[0] - '0') * 10) + (__TIME__[1] - '0');
+    int hora = ((__TIME__[0] - '0') * 10) + (__TIME__[1] - '0');
     int minuto = ((__TIME__[3] - '0') * 10) + (__TIME__[4] - '0');
 
-    // Monta a string: AAMMDD.HHMM
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%02d%02d%02d.%02d.%02d", 
-             ano, mes, dia, hora, minuto);
-    
+    snprintf(buffer, sizeof(buffer), "%02d%02d%02d.%02d%02d", ano, mes, dia, hora, minuto);
     return String(buffer);
 }
 ```
-
-**Características:**
-- ✅ **Automático:** Usa macros `__DATE__` e `__TIME__` do compilador
-- ✅ **Sem dependências:** Não requer arquivo externo
-- ✅ **Zero overhead:** Compilado em tempo de compilação
-- ✅ **Único por build:** Cada compilação gera versão diferente
-- ✅ **Rastreável:** Data/hora exata de cada firmware
 
 ### Comandos relacionados
 
@@ -204,7 +181,7 @@ static String obterVersaoAutomatica() {
 | :--- | :--- | :--- |
 | `version` | `261005.2326` | Versão formatada (AAMMDD.HHMM) |
 | `build` | `Oct  5 2026 23:26` | Data e hora bruta de compilação |
-| `info` | Relatório completo | Inclui versão, build e data/hora |
+| `info` | Relatório completo | Inclui versão, build e dados do dispositivo |
 
 ---
 
@@ -213,13 +190,12 @@ static String obterVersaoAutomatica() {
 ```
 M5NanoC6_wifi/
 ├── 📄 M5NanoC6_wifi.ino ......... Entrada principal e loop
-├── ⚙️  Config.h ................ Pinos, UDP, HTML do portal
-├── 🎨 HardwareController.h ...... RGB LED, botão, IR
-├── 📡 DeviceNetwork.h ........... Wi‑Fi, AP, UDP, OTA
-├── 🕐 NTPService.h ............ NTP e timezone
-├── 💬 CommandHandler.h ......... Parser de comandos UDP
-├── 📖 README.md ............... Documentação
-└── 📝 CHANGELOG.md ............ Histórico de versões
+├── ⚙️  Config.h ................ Pinos, UDP, utilitários e constantes
+├── 🎨 HardwareController.h ...... RGB LED, botão, IR e efeitos
+├── 📡 DeviceNetwork.h ........... Wi‑Fi, AP, UDP, portal web e OTA
+├── 🕐 NTPService.h ............. NTP, timezone e DST
+├── 💬 CommandHandler.h .......... Parser de comandos UDP
+└── 📖 README.md ................. Documentação
 ```
 
 ### Módulos principais
@@ -227,7 +203,7 @@ M5NanoC6_wifi/
 | Arquivo | Responsabilidade | Principais funções |
 | :--- | :--- | :--- |
 | **M5NanoC6_wifi.ino** | Boot, loop, fluxo de execução | `setup()`, `loop()`, inicialização |
-| **Config.h** | Pinos, porta UDP, fuso, HTML | `PIN_*`, `UDP_PORT`, portal HTML |
+| **Config.h** | Pinos, porta UDP, fuso, helpers | `PIN_*`, `UDP_PORT`, `obterMotivoReset()`, `obterVersaoAutomatica()` |
 | **HardwareController.h** | LED RGB, botão, IR, efeitos | `setLedColor()`, `iniciarBreathAsync()`, `dispararPulsoIR()` |
 | **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, OTA, web server | `conectar()`, `iniciarUDP()`, `processarOTA()` |
 | **NTPService.h** | Sincronização de hora, timezone, DST | `begin()`, `getData()`, `getHora()` |
