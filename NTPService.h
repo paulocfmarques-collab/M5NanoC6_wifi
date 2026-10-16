@@ -7,24 +7,47 @@
 #include <esp_sntp.h>
 #include <atomic>
 
-class NTPService {
-private:
-    static std::atomic<bool>& recebeuResposta() {
+class NTPService
+{
+  private:
+    static std::atomic<bool>& recebeuResposta()
+    {
         static std::atomic<bool> recebido{false};
         return recebido;
     }
-    static void aoSincronizar(struct timeval*) { recebeuResposta().store(true); }
+    static std::atomic<uint32_t>& ultimaSincronia()
+    {
+        static std::atomic<uint32_t> instante{0};
+        return instante;
+    }
+    static void aoSincronizar(struct timeval* horario)
+    {
+        ultimaSincronia().store(static_cast<uint32_t>(horario->tv_sec));
+        recebeuResposta().store(true);
+    }
     bool aguardando = false;
     bool iniciado = false;
     unsigned long inicioTentativa = 0;
     int fusoAtual = -3;
     bool dstAtual = false;
 
-public:
-    bool begin(int fuso, bool dstAtivo) { return sincronizar(fuso, dstAtivo); }
+    static bool lerHora(struct tm& timeinfo)
+    {
+        time_t agora = time(nullptr);
+        return agora >= 1483228800 && localtime_r(&agora, &timeinfo) != nullptr;
+    }
 
-    bool sincronizar(int fuso, bool dstAtivo) {
-        if (WiFi.status() != WL_CONNECTED) {
+  public:
+    uint32_t obterUltimaSincronia() const { return ultimaSincronia().load(); }
+    bool begin(int fuso, bool dstAtivo)
+    {
+        return sincronizar(fuso, dstAtivo);
+    }
+
+    bool sincronizar(int fuso, bool dstAtivo)
+    {
+        if (WiFi.status() != WL_CONNECTED)
+        {
             Serial.println(F("[NTP] Sem Wi-Fi. Conecte a uma rede com acesso a Internet."));
             return false;
         }
@@ -39,7 +62,8 @@ public:
         return true;
     }
 
-    void configurarRelogio(int fuso, bool dstAtivo) {
+    void configurarRelogio(int fuso, bool dstAtivo)
+    {
         fusoAtual = fuso;
         dstAtual = dstAtivo;
         // DST_ON aplica manualmente uma hora extra, sem regras sazonais implicitas.
@@ -48,43 +72,59 @@ public:
         configTzTime(tzString, "a.st1.ntp.br", "pool.ntp.org", "time.nist.gov");
     }
 
-    void atualizar() {
-        if (!iniciado) return;
-        if (aguardando && recebeuResposta().load()) {
+    void atualizar()
+    {
+        if (!iniciado)
+            return;
+        if (aguardando && recebeuResposta().load())
+        {
             aguardando = false;
             Serial.println("[NTP] Sincronizado: " + getData() + " " + getHora());
-        } else if (aguardando && millis() - inicioTentativa >= 30000UL) {
-            aguardando = false;
-            Serial.println(F("[NTP] Sem resposta em 30 s. Verifique Internet, DNS e UDP 123; nova tentativa em 60 s."));
         }
-        if (!aguardando && !recebeuResposta().load() &&
-            millis() - inicioTentativa >= 90000UL && WiFi.status() == WL_CONNECTED) {
+        else if (aguardando && millis() - inicioTentativa >= 30000UL)
+        {
+            aguardando = false;
+            Serial.println(F("[NTP] Sem resposta em 30 s. Verifique Internet, DNS e UDP 123; nova "
+                             "tentativa em 60 s."));
+        }
+        if (!aguardando && !recebeuResposta().load() && millis() - inicioTentativa >= 90000UL &&
+            WiFi.status() == WL_CONNECTED)
+        {
             sincronizar(fusoAtual, dstAtual);
         }
     }
 
-    String getStatus() {
-        if (aguardando && !recebeuResposta().load()) return "SINCRONIZANDO";
+    String getStatus()
+    {
+        if (aguardando && !recebeuResposta().load())
+            return "SINCRONIZANDO";
         return isSincronizado() ? "OK" : "FALHA";
     }
 
-    String getHora() {
+    String getHora()
+    {
         struct tm timeinfo;
-        if (!getLocalTime(&timeinfo, 0)) return "00:00:00";
+        if (!lerHora(timeinfo))
+            return "00:00:00";
         char buffer[16];
         strftime(buffer, sizeof(buffer), "%H:%M:%S", &timeinfo);
         return String(buffer);
     }
 
-    String getData() {
+    String getData()
+    {
         struct tm timeinfo;
-        if (!getLocalTime(&timeinfo, 0)) return "00/00/0000";
+        if (!lerHora(timeinfo))
+            return "00/00/0000";
         char buffer[16];
         strftime(buffer, sizeof(buffer), "%d/%m/%Y", &timeinfo);
         return String(buffer);
     }
 
-    bool isSincronizado() { return recebeuResposta().load(); }
+    bool isSincronizado()
+    {
+        return recebeuResposta().load();
+    }
 };
 
 extern NTPService ntp;

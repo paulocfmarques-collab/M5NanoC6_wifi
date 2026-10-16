@@ -1,5 +1,92 @@
 # Changelog
 
+## 2026-10-16
+
+- Porta nas preferências configura somente a coleta `/metrics`, com aplicação
+  após salvar e restauração no boot/AP. Painel, API e configuração permanecem
+  na porta 80, sem redirecionamento. Porta de métricas padrão 80; valor salvo
+  é preservado. Ao escolher 80, as métricas compartilham o servidor do painel.
+- YAML gerado usa a porta configurada do ESP32; documentação distingue essa
+  porta da porta de acesso ao servidor Prometheus.
+- Testes para porta padrão, persistência no YAML, link de métricas na porta
+  configurada e formulário sem redirecionamento do painel.
+- Endpoint `/metrics` no formato Prometheus 0.0.4 para coleta direta pelo servidor.
+- Página `/prometheus` com endereço, porta e intervalo persistidos em Preferences,
+  validação de campos, API de configuração e download de `prometheus.yml`.
+- Métricas reais de identificação, sistema, Wi-Fi, CPU, memória, flash,
+  GPIOs já configurados, HTTP e clima externo identificado como Open-Meteo.
+- Contadores persistentes de inicializações e watchdog, gravados uma vez por boot.
+- Amostragem de CPU a partir dos tempos reais das tarefas/idle, com tratamento
+  de wrap dos contadores; middleware mede requisições, erros e duração HTTP.
+- Métricas sem hardware/recurso instalado são omitidas e documentadas em
+  `PROMETHEUS.md`, sem valores fictícios de energia, bateria, relés ou MQTT.
+- Testes nativos do serviço e testes do formulário web aprovados: persistência
+  simulada, falhas NVS, boot/watchdog, CPU com wrap, contadores, labels,
+  exposição, parâmetros do formulário, recarga e erros de comunicação.
+- Documentação revisada: rotas web, Serial, configuração da coleta, métricas
+  indisponíveis e verificação de espaço na flash pela saída da compilação.
+- Fórmulas de uso/espaço livre na partição e exemplo PowerShell para medir
+  o binário de aplicação, com distinção entre tamanho de fonte e firmware.
+
+## 2026-10-15
+
+- Botão integrado GPIO9 alterna o LCD, com filtro de contato de 35 ms e uma
+  ação por pressionamento, acompanhando o estado definido pelos demais canais.
+
+- Comandos `LCD_ON` e `LCD_OFF` por UDP, Serial e Bluetooth LE.
+- Botões Ligar tela e Desligar tela no painel e rotas POST `/lcd_on` e `/lcd_off`.
+- Controle conjunto do conteúdo e backlight, sem interromper os demais serviços;
+  atualização imediata ao religar e inicialização sempre com a tela ligada.
+- Estado `lcd.ligado` na API e no painel; falhas I2C retornam erro.
+- Recepção Serial não bloqueante a 115200 baud, linhas LF/CRLF, limite de 255
+  caracteres ASCII; respostas no próprio canal Serial.
+- Validação: compilação aprovada para NanoC6/Huge APP (1.758.398 bytes, 55%;
+  memória global 48.920 bytes, 14%). Testes do painel passaram, incluindo
+  rotas POST de ligar/desligar e atualização do estado/prévia do LCD.
+  Testes físicos do botão, LCD e entrada Serial dependem de gravação por USB.
+
+## 2026-10-13
+
+### Adicionado
+
+- LCD 20x4 com adaptador PCF8574T: SDA no G2 e SCL no G1, I2C a 100 kHz.
+- Detecção automática de um único dispositivo entre 0x20 e 0x27; endereço
+  explícito opcional em `Config::LCD_ENDERECO`.
+- Tela com data/hora, IP, máxima/mínima, umidade e temperatura/tempo de Porto Alegre,
+  atualizada a cada segundo sem limpar a tela inteira. Em modo AP, mostra o IP do portal.
+- Driver local usando `Wire`, sem instalar uma biblioteca LCD adicional.
+- Logs de ausência/falha do LCD; os demais serviços continuam funcionando.
+- Última linha substitui o estado NTP por temperatura externa e condição
+  meteorológica de Porto Alegre, RS, via Open-Meteo. Consulta HTTPS com
+  certificados validados em tarefa separada, a cada 10 minutos; após falha,
+  repete em 2 minutos e sinaliza dado anterior com `*` por até 30 minutos.
+- Dependência ArduinoJson 7 para interpretar os dados meteorológicos.
+- Bluetooth LE com nome `M5NanoC6` e perfil Nordic UART: mesmos comandos
+  por BLE e UDP, com resposta pelo canal de origem, inclusive no modo AP.
+- RX com linhas terminadas em LF/CRLF, fragmentação, limite de 255 bytes e
+  fila de quatro comandos. TX por notificações de até 20 bytes, sem bloquear
+  o loop para enviar respostas longas; sessão anterior descartada ao desconectar.
+- Retomada automática do anúncio BLE após desconexão e instruções em `COMANDOS.md` e `HELP`.
+- Leitura de data/hora diretamente do relógio, sem espera nem dependência
+  de uma janela de timeout zero durante a atualização do LCD.
+
+- LCD sem nome da rede: IP sobe à segunda linha; terceira mostra máxima e mínima de hoje em °C e umidade em %. Quarta usa até 20 colunas para temperatura atual e condição, sem cortar palavras.
+- Previsão diária do Open-Meteo com dia definido pelo fuso de Porto Alegre; máxima/mínima do dia anterior deixam de aparecer após a meia-noite.
+- Painel web com atualização automática, clima detalhado, LCD, Bluetooth, rede, memória, hardware e controles. API de estado não expõe senhas; medição Wi-Fi apenas sob solicitação.
+- Partição Huge APP de 3 MB, necessária para Bluetooth e HTTPS; arquivo partitions.csv incluído.
+
+### Removido
+
+- ArduinoOTA, inicialização OTA e processamento OTA no loop. Atualizações
+  do firmware passam a ser feitas por USB.
+
+### Validação
+
+- Testes do JavaScript do painel passaram: dados, portal AP, clima anterior, LCD ausente, SSID especial, LED, fuso/DST, perda de contato e rotas.
+- Consulta HTTPS real confirmou temperatura, umidade, vento, sensação térmica e previsão diária de máxima/mínima para Porto Alegre.
+- Compilação final aprovada para M5NanoC6 com Arduino ESP32 3.3.12 e partição Huge APP: 1.754.106 bytes de programa (55% de 3 MB), 48.832 bytes de memória global (14%). A partição padrão não comporta o firmware.
+- Testes no LCD e no celular BLE ainda dependem de gravação por USB. Prévia visual em navegador indisponível no ambiente.
+
 ## 2026-10-12
 
 ### Corrigido
