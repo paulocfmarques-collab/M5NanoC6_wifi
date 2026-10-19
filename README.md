@@ -1,4 +1,4 @@
-# M5NanoC6_wifi — Documentação Técnica Completa
+# M5NanoC6_wifi — Complete Technical Documentation
 
 ![Repo](https://img.shields.io/badge/repo-M5NanoC6__wifi-0a66c2?style=for-the-badge&logo=github)
 ![Platform](https://img.shields.io/badge/platform-ESP32--C6-00979D?style=for-the-badge&logo=espressif)
@@ -9,48 +9,48 @@
 ![Metrics](https://img.shields.io/badge/feature-Metrics-purple?style=for-the-badge)
 ![Dashboard](https://img.shields.io/badge/feature-Web%20Dashboard-1f6feb?style=for-the-badge)
 
-Firmware modular para **M5 Nano C6 (ESP32-C6)** com foco em:
-- conectividade Wi-Fi,
-- dashboard web local,
-- métricas/observabilidade,
-- OTA (atualização remota),
-- comandos operacionais,
-- integrações auxiliares (NTP, clima, Bluetooth, LCD).
+Modular firmware for **M5 Nano C6 (ESP32-C6)** focused on:
+- Wi-Fi connectivity,
+- local web dashboard,
+- metrics/observability,
+- OTA (remote updates),
+- operational commands,
+- auxiliary integrations (NTP, weather, Bluetooth, LCD).
 
 ---
 
-## Sumário
+## Table of Contents
 
-1. [Identidade do repositório](#1-identidade-do-repositório)
-2. [Arquitetura em alto nível](#2-arquitetura-em-alto-nível)
-3. [Inventário completo de arquivos-fonte](#3-inventário-completo-de-arquivos-fonte-diretório-raiz)
-4. [Detalhamento técnico por arquivo-fonte](#4-detalhamento-técnico-por-arquivo-fonte)
-5. [API / rotas prováveis](#5-api--rotas-prováveis)
-6. [Build, gravação e validação](#6-build-gravação-e-validação-guia-rápido)
-7. [Observabilidade e operação contínua](#7-observabilidade-e-operação-contínua)
-8. [Segurança mínima recomendada](#8-segurança-mínima-recomendada)
-9. [Arquivos de documentação complementares](#9-arquivos-de-documentação-complementares-no-repositório)
-10. [Próximos upgrades recomendados](#10-próximos-upgrades-recomendados)
-11. [Licença](#licença)
+1. [Repository identity](#1-repository-identity)
+2. [High-level architecture](#2-high-level-architecture)
+3. [Complete source file inventory](#3-complete-source-file-inventory-root-directory)
+4. [Technical details by source file](#4-technical-details-by-source-file)
+5. [API / likely routes](#5-api--likely-routes)
+6. [Build, flashing, and validation](#6-build-flashing-and-validation-quick-guide)
+7. [Observability and continuous operation](#7-observability-and-continuous-operation)
+8. [Minimum recommended security](#8-minimum-recommended-security)
+9. [Additional documentation files](#9-additional-documentation-files-in-the-repository)
+10. [Recommended next upgrades](#10-recommended-next-upgrades)
+11. [License](#license)
 
 ---
 
-## 1) Identidade do repositório
+## 1) Repository identity
 
-- **Repositório:** `paulocfmarques-collab/M5NanoC6_wifi`
+- **Repository:** `paulocfmarques-collab/M5NanoC6_wifi`
 - **URL:** https://github.com/paulocfmarques-collab/M5NanoC6_wifi
-- **Branch padrão:** `main`
-- **Linguagem principal:** C++
-- **Plataforma-alvo:** ESP32-C6 (Arduino framework)
+- **Default branch:** `main`
+- **Primary language:** C++
+- **Target platform:** ESP32-C6 (Arduino framework)
 - **Entrypoint:** `M5NanoC6_wifi.ino`
 
 ---
 
-## 2) Arquitetura em alto nível
+## 2) High-level architecture
 
-O projeto segue uma abordagem modular, com serviços especializados em headers C++ e um orquestrador principal em `.ino`.
+The project follows a modular approach, with specialized services in C++ headers and a main orchestrator in `.ino`.
 
-### 2.1 Mapa de componentes
+### 2.1 Component map
 
 ```mermaid
 flowchart TD
@@ -69,7 +69,7 @@ flowchart TD
     A --> N[HardwareController.h]
 ```
 
-### 2.2 Sequência de boot
+### 2.2 Boot sequence
 
 ```mermaid
 sequenceDiagram
@@ -82,132 +82,132 @@ sequenceDiagram
     participant MET as MetricsService
     participant OTA as OTAService
 
-    FW->>CFG: Carrega parâmetros
-    FW->>HW: Inicializa hardware base
-    FW->>NET: Sobe Wi-Fi
-    NET-->>FW: Estado da conexão/IP
-    FW->>NTP: Sincroniza horário
-    FW->>WEB: Registra páginas e APIs
-    FW->>MET: Inicia coleta de métricas
-    FW->>OTA: Habilita fluxo OTA
+    FW->>CFG: Load parameters
+    FW->>HW: Initialize base hardware
+    FW->>NET: Bring up Wi-Fi
+    NET-->>FW: Connection/IP status
+    FW->>NTP: Synchronize time
+    FW->>WEB: Register pages and APIs
+    FW->>MET: Start metrics collection
+    FW->>OTA: Enable OTA flow
 ```
 
-### 2.3 Fluxo de execução
+### 2.3 Execution flow
 
-1. Boot do firmware (`setup` no `.ino`)
-2. Carregamento de parâmetros (`Config.h`)
-3. Inicialização de hardware básico (`HardwareController.h`, `LCDService.h`)
-4. Conexão de rede (`DeviceNetwork.h`)
-5. Sincronização de tempo (`NTPService.h`)
-6. Subida de endpoints/páginas (`WebDashboard.h`, `MetricsPage.h`, `OTAUploadPage.h`)
-7. Loop principal (`loop`) com:
-   - manutenção de conectividade,
-   - coleta e exposição de métricas,
-   - processamento de comandos,
-   - supervisão de OTA.
+1. Firmware boot (`setup` in `.ino`)
+2. Parameter loading (`Config.h`)
+3. Basic hardware initialization (`HardwareController.h`, `LCDService.h`)
+4. Network connection (`DeviceNetwork.h`)
+5. Time synchronization (`NTPService.h`)
+6. Endpoint/page startup (`WebDashboard.h`, `MetricsPage.h`, `OTAUploadPage.h`)
+7. Main loop (`loop`) with:
+   - connectivity maintenance,
+   - metrics collection and exposure,
+   - command processing,
+   - OTA supervision.
 
 ---
 
-## 3) Inventário completo de arquivos-fonte (diretório raiz)
+## 3) Complete source file inventory (root directory)
 
-> Escopo desta seção: **arquivos de código/configuração** utilizados pelo firmware.
+> Scope of this section: **code/configuration files** used by the firmware.
 
-| Arquivo | Função principal | Tamanho (bytes) |
+| File | Main function | Size (bytes) |
 |---|---|---:|
-| `M5NanoC6_wifi.ino` | Orquestração de setup/loop da aplicação | 3080 |
-| `Config.h` | Definições globais de configuração e parâmetros | 4850 |
-| `DeviceNetwork.h` | Gerenciamento Wi-Fi, estado de rede e reconexão | 32646 |
-| `WebDashboard.h` | Dashboard web local e rotas de interface | 24901 |
-| `CommandHandler.h` | Processamento e roteamento de comandos | 14622 |
-| `MetricsService.h` | Coleta e exposição de métricas | 13660 |
-| `MetricsPage.h` | Página de visualização de métricas | 6211 |
-| `OTAService.h` | Serviço de atualização OTA | 6934 |
-| `OTAUploadPage.h` | Página de upload de firmware OTA | 3426 |
-| `NTPService.h` | Sincronização de horário via NTP | 3713 |
-| `WeatherService.h` | Integração de dados de clima | 11595 |
-| `BluetoothService.h` | Recursos de conectividade/interação Bluetooth | 6952 |
-| `LCDService.h` | Renderização/controle de display LCD | 5745 |
-| `HardwareController.h` | Acesso e controle de periféricos/IO | 5971 |
-| `partitions.csv` | Layout de partições da flash (ESP32) | 304 |
+| `M5NanoC6_wifi.ino` | Setup/loop orchestration of the application | 3080 |
+| `Config.h` | Global configuration and parameter definitions | 4850 |
+| `DeviceNetwork.h` | Wi-Fi management, network state, and reconnection | 32646 |
+| `WebDashboard.h` | Local web dashboard and UI routes | 24901 |
+| `CommandHandler.h` | Command processing and routing | 14622 |
+| `MetricsService.h` | Metrics collection and exposure | 13660 |
+| `MetricsPage.h` | Metrics visualization page | 6211 |
+| `OTAService.h` | OTA update service | 6934 |
+| `OTAUploadPage.h` | OTA firmware upload page | 3426 |
+| `NTPService.h` | Time synchronization via NTP | 3713 |
+| `WeatherService.h` | Weather data integration | 11595 |
+| `BluetoothService.h` | Bluetooth connectivity/interaction features | 6952 |
+| `LCDService.h` | LCD display rendering/control | 5745 |
+| `HardwareController.h` | Peripheral/IO access and control | 5971 |
+| `partitions.csv` | Flash partition layout (ESP32) | 304 |
 
 ---
 
-## 4) Detalhamento técnico por arquivo-fonte
+## 4) Technical details by source file
 
 ## `M5NanoC6_wifi.ino`
-**Papel:** ponto de entrada do firmware.  
-**Responsabilidades prováveis:**
-- incluir/instanciar serviços,
-- inicialização geral em `setup()`,
-- ciclo de manutenção em `loop()`.
+**Role:** firmware entry point.  
+**Likely responsibilities:**
+- include/instantiate services,
+- general initialization in `setup()`,
+- maintenance cycle in `loop()`.
 
 ## `Config.h`
-**Papel:** centralizar parâmetros de build/runtime.  
-**Conteúdo esperado:** SSID/senha, timeouts, flags de debug, endpoints e limites.
+**Role:** centralize build/runtime parameters.  
+**Expected content:** SSID/password, timeouts, debug flags, endpoints, and limits.
 
 ## `DeviceNetwork.h`
-**Papel:** camada de conectividade.  
-**Responsabilidades:** iniciar Wi-Fi, monitorar link/RSSI, reconectar, manter estado de IP.
+**Role:** connectivity layer.  
+**Responsibilities:** start Wi-Fi, monitor link/RSSI, reconnect, maintain IP state.
 
 ## `WebDashboard.h`
-**Papel:** interface web local para operação.  
-**Responsabilidades:** servir páginas HTML e handlers HTTP de status/controle.
+**Role:** local web interface for operation.  
+**Responsibilities:** serve HTML pages and HTTP handlers for status/control.
 
 ## `CommandHandler.h`
-**Papel:** barramento de comandos operacionais.  
-**Responsabilidades:** validar payload, despachar ações e responder com status padronizado.
+**Role:** operational command bus.  
+**Responsibilities:** validate payloads, dispatch actions, and return standardized status responses.
 
 ## `MetricsService.h`
-**Papel:** observabilidade técnica.  
-**Responsabilidades:** coletar e expor métricas (uptime, memória, Wi-Fi, erros).
+**Role:** technical observability.  
+**Responsibilities:** collect and expose metrics (uptime, memory, Wi-Fi, errors).
 
 ## `MetricsPage.h`
-**Papel:** visualização humana de métricas.  
-**Responsabilidades:** renderizar painel de monitoramento para troubleshooting rápido.
+**Role:** human-friendly metrics visualization.  
+**Responsibilities:** render monitoring dashboard for quick troubleshooting.
 
 ## `OTAService.h`
-**Papel:** motor de atualização OTA.  
-**Responsabilidades:** receber imagem, validar, aplicar e coordenar reboot.
+**Role:** OTA update engine.  
+**Responsibilities:** receive image, validate, apply, and coordinate reboot.
 
 ## `OTAUploadPage.h`
-**Papel:** interface web para upload OTA.  
-**Responsabilidades:** envio do firmware e feedback de progresso/erro.
+**Role:** web interface for OTA upload.  
+**Responsibilities:** firmware upload and progress/error feedback.
 
 ## `NTPService.h`
-**Papel:** sincronização de relógio via NTP.  
-**Impacto:** timestamps confiáveis para logs e métricas.
+**Role:** clock synchronization via NTP.  
+**Impact:** reliable timestamps for logs and metrics.
 
 ## `WeatherService.h`
-**Papel:** integração de clima.  
-**Responsabilidades:** consulta de fonte externa, cache e fallback.
+**Role:** weather integration.  
+**Responsibilities:** query external source, cache, and fallback behavior.
 
 ## `BluetoothService.h`
-**Papel:** camada Bluetooth/BLE complementar ao Wi-Fi.  
-**Cuidados:** concorrência de rádio e consumo energético.
+**Role:** Bluetooth/BLE layer complementary to Wi-Fi.  
+**Considerations:** radio concurrency and power consumption.
 
 ## `LCDService.h`
-**Papel:** exibição local no display.  
-**Responsabilidades:** status operacional e mensagens de alerta.
+**Role:** local display output.  
+**Responsibilities:** operational status and alert messages.
 
 ## `HardwareController.h`
-**Papel:** abstração de hardware/periféricos.  
-**Benefício:** reduz acoplamento e facilita evolução da base.
+**Role:** hardware/peripheral abstraction.  
+**Benefit:** reduces coupling and eases codebase evolution.
 
 ## `partitions.csv`
-**Papel:** layout da flash do ESP32-C6.  
-**Crítico para OTA:** precisa manter partição adequada para app e atualização.
+**Role:** ESP32-C6 flash layout.  
+**Critical for OTA:** must keep suitable partitioning for app and updates.
 
 ---
 
-## 5) API / rotas prováveis
+## 5) API / likely routes
 
-> Rotas inferidas da estrutura dos módulos; ajuste conforme implementação real.
+> Routes inferred from module structure; adjust according to actual implementation.
 
-### 5.1 Mapa visual de rotas
+### 5.1 Visual route map
 
 ```mermaid
 flowchart LR
-    U[Usuário / Ferramenta] --> R1["GET /"]
+    U[User / Tool] --> R1["GET /"]
     U --> R2["GET /dashboard"]
     U --> R3["GET /metrics"]
     U --> R4["GET /metrics-page"]
@@ -217,136 +217,136 @@ flowchart LR
     U --> R8["GET /health"]
 ```
 
-### 5.2 Páginas web
+### 5.2 Web pages
 
-- `GET /` — dashboard inicial
-- `GET /dashboard` — visão geral
-- `GET /metrics-page` — métricas human-readable
-- `GET /ota` — upload de firmware
+- `GET /` — initial dashboard
+- `GET /dashboard` — overview
+- `GET /metrics-page` — human-readable metrics
+- `GET /ota` — firmware upload
 
-### 5.3 API de estado/métricas
+### 5.3 Status/metrics API
 
 - `GET /health` — health check
-- `GET /status` — snapshot JSON
-- `GET /metrics` — endpoint para scraping/Prometheus
+- `GET /status` — JSON snapshot
+- `GET /metrics` — scraping/Prometheus endpoint
 
-### 5.4 API operacional
+### 5.4 Operational API
 
-- `POST /api/command` — comandos gerais
+- `POST /api/command` — general commands
 - `POST /api/reboot` — reboot
-- `POST /api/wifi/reconnect` — reconexão de rede
-- `POST /api/time/sync` — sincronização NTP
+- `POST /api/wifi/reconnect` — network reconnection
+- `POST /api/time/sync` — NTP synchronization
 
-### 5.5 API OTA
+### 5.5 OTA API
 
 - `GET /api/ota/status`
 - `POST /api/ota/upload`
 - `POST /api/ota/apply`
 - `POST /api/ota/cancel`
 
-### 5.6 Estado OTA (conceitual)
+### 5.6 OTA state (conceptual)
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
     Idle --> Uploading: /api/ota/upload
     Uploading --> Validating
-    Validating --> ReadyToApply: imagem OK
-    Validating --> Failed: imagem inválida
+    Validating --> ReadyToApply: image OK
+    Validating --> Failed: invalid image
     ReadyToApply --> Applying: /api/ota/apply
     Applying --> Rebooting
-    Rebooting --> Idle: boot OK
+    Rebooting --> Idle: successful boot
     Failed --> Idle
 ```
 
 ---
 
-## 6) Build, gravação e validação (guia rápido)
+## 6) Build, flashing, and validation (quick guide)
 
-1. Instalar suporte ESP32 com alvo ESP32-C6.
-2. Abrir `M5NanoC6_wifi.ino`.
-3. Revisar `Config.h`.
-4. Confirmar `partitions.csv` compatível com OTA.
-5. Compilar e gravar.
-6. Validar:
-   - Wi-Fi conectado,
-   - dashboard acessível,
-   - NTP sincronizado,
-   - métricas disponíveis,
-   - OTA funcional.
+1. Install ESP32 support targeting ESP32-C6.
+2. Open `M5NanoC6_wifi.ino`.
+3. Review `Config.h`.
+4. Confirm `partitions.csv` is OTA-compatible.
+5. Build and flash.
+6. Validate:
+   - Wi-Fi connected,
+   - dashboard reachable,
+   - NTP synchronized,
+   - metrics available,
+   - OTA functional.
 
 ---
 
-## 7) Observabilidade e operação contínua
+## 7) Observability and continuous operation
 
-### 7.1 Domínios de observação
+### 7.1 Observation domains
 
 ```mermaid
 mindmap
   root((M5NanoC6_wifi))
-    Rede
+    Network
       DeviceNetwork
       NTPService
     Web
       WebDashboard
       MetricsPage
       OTAUploadPage
-    Observabilidade
+    Observability
       MetricsService
       Prometheus
-    Operação
+    Operations
       CommandHandler
       OTAService
     Hardware
       HardwareController
       LCDService
       BluetoothService
-    Integrações
+    Integrations
       WeatherService
 ```
 
-### 7.2 Itens para monitorar
+### 7.2 Items to monitor
 
 - uptime,
 - RSSI,
-- memória livre,
-- taxa de erro por módulo,
-- status NTP e OTA.
+- free memory,
+- error rate per module,
+- NTP and OTA status.
 
 ---
 
-## 8) Segurança mínima recomendada
+## 8) Minimum recommended security
 
-Para endpoints críticos (`/api/command`, OTA):
-- token/chave de API,
-- restrição a LAN,
-- validação rígida de payload e firmware,
-- logs de auditoria para comandos sensíveis.
-
----
-
-## 9) Arquivos de documentação complementares no repositório
-
-Além dos fontes, o projeto inclui:
-
-- `CHANGELOG.md` e `CHANGELOG.pdf`
-- `COMANDOS.md` e `COMANDOS.pdf`
-- `OTA.md` e `OTA.pdf`
-- `PROMETHEUS.md` e `PROMETHEUS.pdf`
+For critical endpoints (`/api/command`, OTA):
+- API token/key,
+- LAN restriction,
+- strict payload and firmware validation,
+- audit logs for sensitive commands.
 
 ---
 
-## 10) Próximos upgrades recomendados
+## 9) Additional documentation files in the repository
 
-- diagrama oficial de arquitetura com contratos entre módulos,
-- tabela completa de parâmetros de `Config.h`,
-- seção de troubleshooting por sintoma,
-- padronização de resposta JSON para todas as rotas,
-- matriz de compatibilidade de versões (board/framework/libs).
+Besides source files, the project includes:
+
+- `CHANGELOG.md` and `CHANGELOG.pdf`
+- `COMANDOS.md` and `COMANDOS.pdf`
+- `OTA.md` and `OTA.pdf`
+- `PROMETHEUS.md` and `PROMETHEUS.pdf`
 
 ---
 
-## Licença
+## 10) Recommended next upgrades
 
-Nenhum arquivo `LICENSE` foi identificado na raiz durante este levantamento.  
-Recomendado adicionar uma licença explícita para definir uso/distribuição.
+- official architecture diagram with contracts between modules,
+- complete `Config.h` parameter table,
+- symptom-based troubleshooting section,
+- standardized JSON responses across all routes,
+- version compatibility matrix (board/framework/libs).
+
+---
+
+## License
+
+No `LICENSE` file was identified at the root during this review.  
+It is recommended to add an explicit license to define usage/distribution terms.
