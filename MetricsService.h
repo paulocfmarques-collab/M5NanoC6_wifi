@@ -132,6 +132,25 @@ class MetricsService
         return countersOk;
     }
 
+    bool resetCounters()
+    {
+        Preferences prefs;
+        if (!prefs.begin("telemetry", false))
+        {
+            countersOk = false;
+            return false;
+        }
+        BootRecord zero{1, 0, 0};
+        const bool ok = prefs.putBytes("boots", &zero, sizeof(zero)) == sizeof(zero);
+        prefs.end();
+        countersOk = ok;
+        if (ok)
+        {
+            boots = zero;
+        }
+        return ok;
+    }
+
     bool save(const String& host, uint16_t port, uint16_t interval)
     {
         if (!validHost(host) || !port || interval < 5 || interval > 3600)

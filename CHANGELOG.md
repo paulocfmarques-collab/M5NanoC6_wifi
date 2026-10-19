@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-10-31 — Reset dos contadores NVS
+
+- Adicionado `reset_counters` para zerar os contadores persistentes de
+  inicialização e watchdog sem apagar configurações Prometheus.
+- Atualizados o menu `help`, o guia de comandos e o catálogo consolidado.
+
+## 2026-10-18 — OTA
+
+- ArduinoOTA sem senha, hostname `M5NanoC6`, porta 3232 e anúncio mDNS para
+  descoberta na Arduino IDE. Reinicia o serviço ao reconectar/trocar de IP;
+  progresso e erros na Serial. OTA web mantido, sem uso simultâneo de Update.
+- Barra de progresso na página OTA, com percentual do envio e estados separados
+  de validação e reinício; bloqueio de envio duplicado, limite no navegador e
+  mensagens de falha com possibilidade de nova tentativa.
+- Testes locais aprovados: acesso sem senha, falta de partição, limite de tamanho,
+  imagem inválida, envio abortado e reinício após sucesso; painel e tabela de
+  partições verificados. Compilação final e gravação serão realizadas pelo usuário.
+- Bluetooth LE removido da compilação, comandos e painel; canais UDP e Serial mantidos.
+- Página `/ota` para upload sem senha do binário de aplicação usando Update do ESP32.
+- OTA com acesso direto pela rede, sem usuário/senha, conforme solicitado.
+- Validação do arquivo e do espaço; envio interrompido/ inválido não reinicia o dispositivo.
+- Tabela com duas partições OTA de 1.966.080 bytes; primeira migração por USB.
+- Painel e API exibem disponibilidade/limite OTA; porta independente das métricas preservada.
+- Script CMD ajustado ao limite da nova tabela e documentação de instalação/atualização.
+
+
+## Revisão documental — 2026-10-18
+
+- Documentado `NAME`, que retorna `M5NanoC6` para identificar a placa.
+- Catálogo geral sincronizado com `LCD_ON`/`LCD_OFF`, botão GPIO9,
+  Serial/UDP/BLE e ausência de ArduinoOTA no firmware atual.
+- Explicitado o padrão de porta 80 para `/metrics`, independente do padrão
+  9120 adotado por outros projetos.
+- Preservados os registros de compilação e testes de etapas anteriores;
+  não houve nova compilação ou teste físico nesta revisão.
+- [Histórico consolidado dos firmwares](../../ESP32_Documents/changelog.md).
+
 ## 2026-10-16
 
 - Porta nas preferências configura somente a coleta `/metrics`, com aplicação

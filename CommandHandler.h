@@ -5,24 +5,18 @@
 #include "HardwareController.h"
 #include "DeviceNetwork.h"
 #include "NTPService.h"
-#include "BluetoothService.h"
 #include "LCDService.h"
+#include "MetricsService.h"
+
+extern MetricsService metrics;
 
 class CommandHandler
 {
-
-    static bool& viaBluetooth()
-    {
-        static bool ativo = false;
-        return ativo;
-    }
 
     static void responder(const String& resposta)
     {
         if (viaSerial())
             Serial.print(resposta);
-        else if (viaBluetooth())
-            bluetooth.responder(resposta);
         else
             network.responderUDP(resposta);
     }
@@ -34,9 +28,8 @@ class CommandHandler
     }
 
   public:
-    static void executar(String cmd, bool porBluetooth = false, bool porSerial = false)
+    static void executar(String cmd, bool porSerial = false)
     {
-        viaBluetooth() = porBluetooth;
         viaSerial() = porSerial;
         cmd.trim();
         cmd.toLowerCase();
@@ -47,13 +40,14 @@ class CommandHandler
         {
             resposta = "==============================================\n"
                        "Comandos Disponiveis:\n"
-                       "Canais: UDP 4210 / Bluetooth LE / Serial 115200 (LF)\n"
-                       "BLE: finalize cada comando com LF (\\n)\n"
+                       "Canais: UDP 4210 / Serial 115200 (LF)\n"
                        "--- Sistema ---\n"
                        "INFO / STATUS / VERSION / BUILD / REASON\n"
                        "REBOOT               - Reinicia o ESP32\n"
+                       "RESET_COUNTERS       - Zera contadores NVS de boot/watchdog\n"
                        "RESET_WIFI           - Apaga config de rede\n"
                        "ALIVE                - Teste de presenca\n"
+                       "NAME                 - Exibe o nome do dispositivo\n"
                        "--- Hardware ---\n"
                        "TEMP / CPU / RAM / HEAP / FLASH / UPTIME\n"
                        "--- Rede ---\n"
@@ -67,10 +61,21 @@ class CommandHandler
                        "SET_BREATH:R,G,B,MS\n"
                        "--- Tela LCD ---\n"
                        "LCD_ON / LCD_OFF     - Liga/desliga tela e iluminacao\n"
+                       "OTA: pagina /ota ou Arduino IDE pela rede (sem senha)\n"
                        "--- Outros ---\n"
                        "IR_TX                - Pulso infravermelho\n"
                        "==============================================";
             responder(resposta + "\n");
+        }
+        else if (cmd == "name")
+        {
+            responder("M5NanoC6\n");
+        }
+        else if (cmd == "reset_counters")
+        {
+            responder(metrics.resetCounters()
+                          ? "Contadores NVS de boot/watchdog zerados.\n"
+                          : "Erro ao zerar contadores NVS.\n");
         }
         else if (cmd == "info")
         {

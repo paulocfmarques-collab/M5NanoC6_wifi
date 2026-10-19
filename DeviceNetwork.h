@@ -10,7 +10,7 @@
 #include "NTPService.h"
 #include "WeatherService.h"
 #include "LCDService.h"
-#include "BluetoothService.h"
+#include "OTAService.h"
 #include "WebDashboard.h"
 #include <ArduinoJson.h>
 #include "MetricsService.h"
@@ -20,6 +20,7 @@ class DeviceNetwork
 {
   private:
     WebServer server;
+    OTAService ota;
     WebServer metricsServer;
     uint16_t activeMetricsPort = 80;
     bool metricsPortPending = false;
@@ -105,7 +106,7 @@ class DeviceNetwork
         JsonObject firmware = dados["firmware"].to<JsonObject>();
         firmware["versao"] = Config::obterVersaoAutomatica();
         firmware["compilacao"] = String(__DATE__) + " " + __TIME__;
-        firmware["atualizacao"] = "USB";
+        firmware["atualizacao"] = "OTA / USB";
 
         JsonObject sistema = dados["sistema"].to<JsonObject>();
         sistema["uptime_s"] = millis() / 1000;
@@ -158,12 +159,10 @@ class DeviceNetwork
             rede["qualidade"] = nullptr;
         }
 
-        JsonObject ble = dados["ble"].to<JsonObject>();
-        ble["ativo"] = bluetooth.estaAtivo();
-        ble["conectado"] = bluetooth.estaConectado();
-        ble["nome"] = "M5NanoC6";
-        ble["perfil"] = "Nordic UART";
-        ble["pendentes"] = bluetooth.comandosPendentes();
+        JsonObject update = dados["ota"].to<JsonObject>();
+        update["disponivel"] = ota.capacity() > 0;
+        update["limite_bytes"] = ota.capacity();
+        update["pagina"] = "/ota";
 
         JsonObject display = dados["lcd"].to<JsonObject>();
         display["ativo"] = lcd.estaAtivo();
@@ -335,6 +334,7 @@ class DeviceNetwork
         if (rotasConfiguradas)
             return;
         rotasConfiguradas = true;
+        ota.begin(server);
         auto registrarHttp =
             [](WebServer& web, Middleware::Callback next)
             {
@@ -802,6 +802,7 @@ class DeviceNetwork
     void processarWebServer()
     {
         server.handleClient();
+        ota.update();
         if (activeMetricsPort != 80)
             metricsServer.handleClient();
         if (metricsPortPending && millis() - metricsPortSavedAt >= 1000UL)

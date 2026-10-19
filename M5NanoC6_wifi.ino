@@ -2,7 +2,6 @@
 #include <HTTPClient.h>
 #include <NetworkClientSecure.h>
 #include <ArduinoJson.h>
-#include <BLEDevice.h>
 #include "HardwareController.h"
 #include "DeviceNetwork.h"
 #include "CommandHandler.h"
@@ -15,7 +14,6 @@ DeviceNetwork network;
 NTPService ntp;
 LCDService lcd;
 WeatherService clima;
-BluetoothService bluetooth;
 MetricsService metrics;
 
 // Recepcao limitada por passagem: nao aguarda quebra de linha nem bloqueia o loop.
@@ -33,7 +31,7 @@ void processarSerial()
             if (descartar)
                 Serial.println("Erro: use ate 255 caracteres ASCII por linha.");
             else if (comando.length())
-                CommandHandler::executar(comando, false, true);
+                CommandHandler::executar(comando, true);
             comando = "";
             descartar = false;
         }
@@ -83,7 +81,6 @@ void setup()
     hardware.begin();
     metrics.begin();
     lcd.begin();
-    bluetooth.begin();
 
     // Inicia a tentativa de conexão na lista circular por RSSI
     network.conectar();
@@ -92,9 +89,8 @@ void setup()
 
 void loop()
 {
-    // Processa o servidor Web e o Bluetooth LE
+    // Processa o servidor Web e a atualizacao OTA
     network.processarWebServer();
-    bluetooth.atualizar();
     processarSerial();
     processarBotao();
     metrics.update();
@@ -112,12 +108,6 @@ void loop()
     if (network.checarMensagensUDP(cmdUdp))
     {
         CommandHandler::executar(cmdUdp);
-    }
-
-    String cmdBLE;
-    if (bluetooth.checarMensagem(cmdBLE))
-    {
-        CommandHandler::executar(cmdBLE, true);
     }
 
     delay(1); // Alimenta o Watchdog do ESP32
