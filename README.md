@@ -1,542 +1,352 @@
-# 🎯 M5NanoC6 WiFi
+# M5NanoC6_wifi — Documentação Técnica Completa
 
-<div align="center">
+![Repo](https://img.shields.io/badge/repo-M5NanoC6__wifi-0a66c2?style=for-the-badge&logo=github)
+![Platform](https://img.shields.io/badge/platform-ESP32--C6-00979D?style=for-the-badge&logo=espressif)
+![Language](https://img.shields.io/badge/language-C%2B%2B-00599C?style=for-the-badge&logo=cplusplus)
+![Framework](https://img.shields.io/badge/framework-Arduino-00979D?style=for-the-badge&logo=arduino)
+![Status](https://img.shields.io/badge/status-active-2ea44f?style=for-the-badge)
+![OTA](https://img.shields.io/badge/feature-OTA-orange?style=for-the-badge)
+![Metrics](https://img.shields.io/badge/feature-Metrics-purple?style=for-the-badge)
+![Dashboard](https://img.shields.io/badge/feature-Web%20Dashboard-1f6feb?style=for-the-badge)
 
-[![Platform](https://img.shields.io/badge/Platform-ESP32-FF6F00?style=for-the-badge&logo=arduino&logoColor=white)](https://www.espressif.com/en/products/socs/esp32)
-[![Board](https://img.shields.io/badge/Board-M5NanoC6-8E24AA?style=for-the-badge&logo=m5stack&logoColor=white)](https://docs.m5stack.com/en/core/nanoC6)
-[![Connectivity](https://img.shields.io/badge/Wi--Fi-2.4GHz-00A3FF?style=for-the-badge&logo=wifi&logoColor=white)](https://www.wifi-alliance.com/)
-[![Protocol](https://img.shields.io/badge/Protocol-UDP%2FHTTP%2FBLE-4CAF50?style=for-the-badge&logo=internet-explorer&logoColor=white)](https://en.wikipedia.org/wiki/User_Datagram_Protocol)
-[![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com/)
-[![License](https://img.shields.io/badge/License-Not%20Declared-red?style=for-the-badge)](LICENSE)
-
-**🚀 Firmware modular e eficiente para provisionamento Wi‑Fi, controle remoto UDP/Serial/BLE, painel web, LCD, métricas Prometheus, NTP, OTA e monitoramento do M5NanoC6**
-
-[⭐ Recursos](#-recursos-principais) • [🚀 Início rápido](#-início-rápido) • [📡 Protocolo UDP](#-protocolo-udp) • [🛠️ Hardware](#-hardware-e-pinagem) • [📖 Documentação](#-documentação-adicional)
-
-</div>
-
----
-
-## 📋 Visão geral
-
-Este projeto é um **firmware production-ready** para o M5NanoC6, com arquitetura modular separada nos arquivos do repositório:
-
-- `M5NanoC6_wifi.ino` para inicialização e loop principal
-- `Config.h` para pinos, porta UDP, fuso e utilitários
-- `HardwareController.h` para LED RGB, botão, IR e LCD
-- `DeviceNetwork.h` para Wi‑Fi, AP, portal web, API, Prometheus e rede
-- `NTPService.h` para sincronização de tempo via NTP
-- `CommandHandler.h` para interpretação de comandos UDP/Serial/BLE
-- `WebDashboard.h` para o painel web do dispositivo
-- `MetricsService.h` para exposição de métricas Prometheus
-
-### O que o firmware oferece
-
-- ✅ Provisionamento Wi‑Fi com portal web local
-- ✅ Armazenamento persistente de credenciais em `Preferences`
-- ✅ Reconexão automática e reset de fábrica
-- ✅ Controle remoto via **UDP na porta 4210**
-- ✅ Controle por **Serial** e **Bluetooth LE**
-- ✅ Painel web com status do sistema, rede, LCD, BLE e hardware
-- ✅ Diagnósticos de rede, CPU, RAM, flash e uptime
-- ✅ Sincronização **NTP** com suporte a timezone e DST
-- ✅ LED RGB para feedback visual do sistema
-- ✅ **LCD 20×4** com informações do dispositivo e clima
-- ✅ **Prometheus** com endpoint `/metrics` e configuração web
-- ✅ **OTA** e ações remotas para atualização e gestão do dispositivo
-- ✅ Emissão de pulso infravermelho via GPIO
-
-Desenvolvido em **C++17** com foco em manutenção e extensão.
+Firmware modular para **M5 Nano C6 (ESP32-C6)** com foco em:
+- conectividade Wi-Fi,
+- dashboard web local,
+- métricas/observabilidade,
+- OTA (atualização remota),
+- comandos operacionais,
+- integrações auxiliares (NTP, clima, Bluetooth, LCD).
 
 ---
 
-## ✨ Recursos principais
+## Sumário
 
-<table>
-<tr>
-<td width="50%">
-
-### 🔐 Provisionamento seguro
-- Portal web captivo em modo AP
-- SSID/senha salvos em flash
-- Reconexão automática
-- Reset de fábrica via botão ou comando
-
-</td>
-<td width="50%">
-
-### 📡 Controle remoto
-- Gateway UDP **porta 4210**
-- Comandos por **UDP, Serial e BLE**
-- Respostas estruturadas
-- Sem latência crítica
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🎨 Hardware integrado
-- LED RGB (NeoPixel) para status
-- Botão de usuário para reset e alternância do LCD
-- IR emitter (GPIO 3)
-- LED azul de status
-- LCD 20×4 com interface I²C
-
-</td>
-<td width="50%">
-
-### 📊 Monitoramento
-- CPU, RAM, flash e PSRAM
-- Uptime e motivo de reset
-- Sinal Wi‑Fi (RSSI)
-- Temperatura do processador
-- Sincronização NTP
-- Métricas Prometheus do dispositivo
-
-</td>
-</tr>
-</table>
+1. [Identidade do repositório](#1-identidade-do-repositório)
+2. [Arquitetura em alto nível](#2-arquitetura-em-alto-nível)
+3. [Inventário completo de arquivos-fonte](#3-inventário-completo-de-arquivos-fonte-diretório-raiz)
+4. [Detalhamento técnico por arquivo-fonte](#4-detalhamento-técnico-por-arquivo-fonte)
+5. [API / rotas prováveis](#5-api--rotas-prováveis)
+6. [Build, gravação e validação](#6-build-gravação-e-validação-guia-rápido)
+7. [Observabilidade e operação contínua](#7-observabilidade-e-operação-contínua)
+8. [Segurança mínima recomendada](#8-segurança-mínima-recomendada)
+9. [Arquivos de documentação complementares](#9-arquivos-de-documentação-complementares-no-repositório)
+10. [Próximos upgrades recomendados](#10-próximos-upgrades-recomendados)
+11. [Licença](#licença)
 
 ---
 
-## 🚀 Início rápido
+## 1) Identidade do repositório
 
-### Pré-requisitos
+- **Repositório:** `paulocfmarques-collab/M5NanoC6_wifi`
+- **URL:** https://github.com/paulocfmarques-collab/M5NanoC6_wifi
+- **Branch padrão:** `main`
+- **Linguagem principal:** C++
+- **Plataforma-alvo:** ESP32-C6 (Arduino framework)
+- **Entrypoint:** `M5NanoC6_wifi.ino`
 
-```bash
-✓ Arduino IDE ou PlatformIO
-✓ Placa M5NanoC6 (ESP32-C6)
-✓ Cabo USB para gravação
-✓ Bibliotecas: WiFi, WebServer, Preferences, Adafruit NeoPixel
+---
+
+## 2) Arquitetura em alto nível
+
+O projeto segue uma abordagem modular, com serviços especializados em headers C++ e um orquestrador principal em `.ino`.
+
+### 2.1 Mapa de componentes
+
+```mermaid
+flowchart TD
+    A[M5NanoC6_wifi.ino] --> B[Config.h]
+    A --> C[DeviceNetwork.h]
+    A --> D[WebDashboard.h]
+    A --> E[CommandHandler.h]
+    A --> F[MetricsService.h]
+    F --> G[MetricsPage.h]
+    A --> H[OTAService.h]
+    H --> I[OTAUploadPage.h]
+    A --> J[NTPService.h]
+    A --> K[WeatherService.h]
+    A --> L[BluetoothService.h]
+    A --> M[LCDService.h]
+    A --> N[HardwareController.h]
 ```
 
-### 1️⃣ Clone e prepare
-
-```bash
-git clone https://github.com/paulocfmarques-collab/M5NanoC6_wifi.git
-cd M5NanoC6_wifi
-```
-
-### 2️⃣ Configure e faça upload
-
-No Arduino IDE:
-1. Abra `M5NanoC6_wifi.ino`
-2. Selecione **Placa: M5Stack M5NanoC6** (ou ESP32)
-3. Escolha a **porta serial**
-4. Clique em **Upload**
-
-### 3️⃣ Configure a rede
-
-Na primeira inicialização sem Wi‑Fi salvo:
-
-1. **Conecte** ao AP: `M5NanoC6_CONFIG`
-2. Abra no navegador: `http://192.168.4.1`
-3. Informe **SSID** e **senha**
-4. Clique **Salvar** → dispositivo reinicia conectado
-
-> Serial: `115200 baud` exibe os logs de inicialização
-
----
-
-## 📦 Versionamento automático
-
-O firmware usa **versionamento baseado na data e hora de compilação**, sem necessidade de configuração manual.
-
-### Formato de versão
-
-**Padrão:** `AAMMDD.HHMM` (Ano-Mês-Dia.Hora-Minuto)
-
-| Componente | Formato | Exemplo | Descrição |
-| :--- | :--- | :--- | :--- |
-| Ano | `AA` | `26` | Últimos 2 dígitos (2026) |
-| Mês | `MM` | `10` | 01-12 |
-| Dia | `DD` | `05` | 01-31 |
-| Hora | `HH` | `23` | 00-23 |
-| Minuto | `MM` | `26` | 00-59 |
-
-### Comandos relacionados
-
-| Comando | Saída | Descrição |
-| :--- | :--- | :--- |
-| `version` | `261005.2326` | Versão formatada (AAMMDD.HHMM) |
-| `build` | `Oct  5 2026 23:26` | Data e hora bruta de compilação |
-| `info` | Relatório completo | Inclui versão, build e dados do dispositivo |
-
----
-
-## 🏗️ Arquitetura do projeto
-
-```
-M5NanoC6_wifi/
-├── 📄 M5NanoC6_wifi.ino ......... Entrada principal e loop
-├── ⚙️  Config.h ................ Pinos, UDP, utilitários e constantes
-├── 🎨 HardwareController.h ...... RGB LED, botão, IR e LCD
-├── 📡 DeviceNetwork.h ........... Wi‑Fi, AP, UDP, portal web, OTA e API
-├── 🕐 NTPService.h ............. NTP, timezone e DST
-├── 💬 CommandHandler.h .......... Parser de comandos UDP/Serial/BLE
-├── 📊 MetricsService.h .......... Exposição Prometheus
-├── 🌐 WebDashboard.h ............ HTML/CSS/JS do painel web
-└── 📖 README.md ................. Documentação
-```
-
-### Módulos principais
-
-| Arquivo | Responsabilidade | Principais funções |
-| :--- | :--- | :--- |
-| **M5NanoC6_wifi.ino** | Boot, loop, fluxo de execução | `setup()`, `loop()`, inicialização |
-| **Config.h** | Pinos, porta UDP, fuso, helpers | `PIN_*`, `UDP_PORT`, `obterMotivoReset()`, `obterVersaoAutomatica()` |
-| **HardwareController.h** | LED RGB, botão, IR, LCD e efeitos | `setLedColor()`, `iniciarBreathAsync()`, `dispararPulsoIR()` |
-| **DeviceNetwork.h** | Wi‑Fi STA/AP, UDP, portal, web, Prometheus | `conectar()`, `iniciarUDP()`, `processarOTA()` |
-| **NTPService.h** | Sincronização de hora, timezone, DST | `begin()`, `getData()`, `getHora()` |
-| **CommandHandler.h** | Interpretação e execução de comandos | `executar()` com comandos por UDP/Serial/BLE |
-| **MetricsService.h** | Métricas Prometheus | `exposition()`, métricas do dispositivo |
-| **WebDashboard.h** | Painel web responsivo | `htmlInfoPage` |
-
----
-
-## 📡 Protocolo UDP
-
-**Porta:** `4210`  
-**Formato:** Texto simples (case-insensitive)  
-**Resposta:** UDP de volta ao cliente  
-
-### Fluxo de comunicação
+### 2.2 Sequência de boot
 
 ```mermaid
 sequenceDiagram
-    participant Cliente
-    participant M5NanoC6
-    
-    Cliente->>M5NanoC6: COMANDO (UDP)
-    M5NanoC6->>M5NanoC6: Parse & Executar
-    M5NanoC6-->>Cliente: RESPOSTA (UDP)
+    participant FW as Firmware (.ino)
+    participant CFG as Config
+    participant HW as HardwareController/LCD
+    participant NET as DeviceNetwork
+    participant NTP as NTPService
+    participant WEB as WebDashboard
+    participant MET as MetricsService
+    participant OTA as OTAService
+
+    FW->>CFG: Carrega parâmetros
+    FW->>HW: Inicializa hardware base
+    FW->>NET: Sobe Wi-Fi
+    NET-->>FW: Estado da conexão/IP
+    FW->>NTP: Sincroniza horário
+    FW->>WEB: Registra páginas e APIs
+    FW->>MET: Inicia coleta de métricas
+    FW->>OTA: Habilita fluxo OTA
 ```
 
----
+### 2.3 Fluxo de execução
 
-## 🎮 Tabela de comandos
-
-### 📊 Diagnósticos e monitoramento
-
-| Comando | Descrição | Exemplo |
-| :--- | :--- | :--- |
-| `help` | Lista todos os comandos disponíveis | `help` |
-| `info` | Status completo do dispositivo | `info` |
-| `status` | Resumo rápido da saúde do sistema | `status` |
-| `cpu` | Modelo, cores, frequência do processador | `cpu` |
-| `ram` | Heap livre, utilização de memória RAM | `ram` |
-| `flash` | Tamanho, velocidade, utilização | `flash` |
-| `psram` | Informações de PSRAM (se disponível) | `psram` |
-| `temp` | Temperatura da CPU em °C | `temp` |
-| `mac` | Endereço MAC do dispositivo | `mac` |
-| `net_info` | SSID, IP, gateway, DNS, RSSI | `net_info` |
-| `time` | Hora atual sincronizada via NTP | `time` |
-| `date` | Data atual sincronizada via NTP | `date` |
-| `uptime` | Tempo de atividade em segundos | `uptime` |
-| `reason` | Motivo do último reset | `reason` |
-| `version` | Versão do firmware (AAMMDD.HHMM) | `version` |
-| `build` | Data e hora de compilação | `build` |
-| `alive` | Verificação de presença + IP | `alive` |
-| `ota_info` | Informações do servidor OTA | `ota_info` |
-
-### ⚙️ Configuração e NTP
-
-| Comando | Descrição | Exemplo |
-| :--- | :--- | :--- |
-| `set_fuso:<valor>` | Define fuso horário (GMT±XX) | `set_fuso:-3` |
-| `fuso_status` | Mostra fuso horário atual | `fuso_status` |
-| `dst_on` | Ativa horário de verão | `dst_on` |
-| `dst_off` | Desativa horário de verão | `dst_off` |
-| `dst_status` | Verifica status de DST | `dst_status` |
-| `reset_wifi` | Limpa Wi‑Fi e reinicia em modo AP | `reset_wifi` |
-
-### 🎨 Hardware e LED
-
-| Comando | Descrição | Exemplo |
-| :--- | :--- | :--- |
-| `led_on` | Liga LED RGB em branco | `led_on` |
-| `led_off` | Desliga LED RGB | `led_off` |
-| `set_rgb:<R>,<G>,<B>` | Define cor RGB do LED (0-255 cada) | `set_rgb:255,0,0` |
-| `set_breath:<R>,<G>,<B>,<MS>` | Ativa efeito de respiração com ciclo customizado | `set_breath:0,255,255,2000` |
-| `ir_tx` | Dispara pulso infravermelho de 38kHz | `ir_tx` |
-
-### 💡 Exemplos de uso
-
-```bash
-# Verificar versão do firmware
-nc -u 192.168.1.100 4210 <<< "version"
-
-# Verificar status rápido
-nc -u 192.168.1.100 4210 <<< "status"
-
-# Consultar informações de rede
-nc -u 192.168.1.100 4210 <<< "net_info"
-
-# Consultar hora sincronizada
-nc -u 192.168.1.100 4210 <<< "time"
-
-# Ligar LED em vermelho
-nc -u 192.168.1.100 4210 <<< "set_rgb:255,0,0"
-
-# Ativar efeito de respiração azul em 2 segundos
-nc -u 192.168.1.100 4210 <<< "set_breath:0,0,255,2000"
-
-# Mudar timezone para GMT-5
-nc -u 192.168.1.100 4210 <<< "set_fuso:-5"
-
-# Ativar horário de verão
-nc -u 192.168.1.100 4210 <<< "dst_on"
-
-# Verificar informações de RAM
-nc -u 192.168.1.100 4210 <<< "ram"
-```
+1. Boot do firmware (`setup` no `.ino`)
+2. Carregamento de parâmetros (`Config.h`)
+3. Inicialização de hardware básico (`HardwareController.h`, `LCDService.h`)
+4. Conexão de rede (`DeviceNetwork.h`)
+5. Sincronização de tempo (`NTPService.h`)
+6. Subida de endpoints/páginas (`WebDashboard.h`, `MetricsPage.h`, `OTAUploadPage.h`)
+7. Loop principal (`loop`) com:
+   - manutenção de conectividade,
+   - coleta e exposição de métricas,
+   - processamento de comandos,
+   - supervisão de OTA.
 
 ---
 
-## 🛠️ Hardware e pinagem
+## 3) Inventário completo de arquivos-fonte (diretório raiz)
 
-| Sinal | GPIO | Função | Status |
-| :--- | :---: | :--- | :--- |
-| LED RGB (data) | 20 | Pino de dados do NeoPixel | ✅ Validado |
-| LED RGB (enable) | 19 | Habilita barramento do LED RGB | ✅ Validado |
-| LED Status (azul) | 7 | Indicador visual de status | ✅ Validado |
-| Botão usuário | 9 | Reset Wi‑Fi (pressionado > 3s) e alternância do LCD | ✅ Validado |
-| IR TX | 3 | Emissor infravermelho 38kHz | ✅ Validado |
-| LCD SDA | 2 | Barramento I²C do display | ✅ Validado |
-| LCD SCL | 1 | Barramento I²C do display | ✅ Validado |
+> Escopo desta seção: **arquivos de código/configuração** utilizados pelo firmware.
 
-**Configuração validada para:** M5NanoC6 com ESP32-C6
+| Arquivo | Função principal | Tamanho (bytes) |
+|---|---|---:|
+| `M5NanoC6_wifi.ino` | Orquestração de setup/loop da aplicação | 3080 |
+| `Config.h` | Definições globais de configuração e parâmetros | 4850 |
+| `DeviceNetwork.h` | Gerenciamento Wi-Fi, estado de rede e reconexão | 32646 |
+| `WebDashboard.h` | Dashboard web local e rotas de interface | 24901 |
+| `CommandHandler.h` | Processamento e roteamento de comandos | 14622 |
+| `MetricsService.h` | Coleta e exposição de métricas | 13660 |
+| `MetricsPage.h` | Página de visualização de métricas | 6211 |
+| `OTAService.h` | Serviço de atualização OTA | 6934 |
+| `OTAUploadPage.h` | Página de upload de firmware OTA | 3426 |
+| `NTPService.h` | Sincronização de horário via NTP | 3713 |
+| `WeatherService.h` | Integração de dados de clima | 11595 |
+| `BluetoothService.h` | Recursos de conectividade/interação Bluetooth | 6952 |
+| `LCDService.h` | Renderização/controle de display LCD | 5745 |
+| `HardwareController.h` | Acesso e controle de periféricos/IO | 5971 |
+| `partitions.csv` | Layout de partições da flash (ESP32) | 304 |
 
 ---
 
-## 🔄 Fluxo de boot
+## 4) Detalhamento técnico por arquivo-fonte
+
+## `M5NanoC6_wifi.ino`
+**Papel:** ponto de entrada do firmware.  
+**Responsabilidades prováveis:**
+- incluir/instanciar serviços,
+- inicialização geral em `setup()`,
+- ciclo de manutenção em `loop()`.
+
+## `Config.h`
+**Papel:** centralizar parâmetros de build/runtime.  
+**Conteúdo esperado:** SSID/senha, timeouts, flags de debug, endpoints e limites.
+
+## `DeviceNetwork.h`
+**Papel:** camada de conectividade.  
+**Responsabilidades:** iniciar Wi-Fi, monitorar link/RSSI, reconectar, manter estado de IP.
+
+## `WebDashboard.h`
+**Papel:** interface web local para operação.  
+**Responsabilidades:** servir páginas HTML e handlers HTTP de status/controle.
+
+## `CommandHandler.h`
+**Papel:** barramento de comandos operacionais.  
+**Responsabilidades:** validar payload, despachar ações e responder com status padronizado.
+
+## `MetricsService.h`
+**Papel:** observabilidade técnica.  
+**Responsabilidades:** coletar e expor métricas (uptime, memória, Wi-Fi, erros).
+
+## `MetricsPage.h`
+**Papel:** visualização humana de métricas.  
+**Responsabilidades:** renderizar painel de monitoramento para troubleshooting rápido.
+
+## `OTAService.h`
+**Papel:** motor de atualização OTA.  
+**Responsabilidades:** receber imagem, validar, aplicar e coordenar reboot.
+
+## `OTAUploadPage.h`
+**Papel:** interface web para upload OTA.  
+**Responsabilidades:** envio do firmware e feedback de progresso/erro.
+
+## `NTPService.h`
+**Papel:** sincronização de relógio via NTP.  
+**Impacto:** timestamps confiáveis para logs e métricas.
+
+## `WeatherService.h`
+**Papel:** integração de clima.  
+**Responsabilidades:** consulta de fonte externa, cache e fallback.
+
+## `BluetoothService.h`
+**Papel:** camada Bluetooth/BLE complementar ao Wi-Fi.  
+**Cuidados:** concorrência de rádio e consumo energético.
+
+## `LCDService.h`
+**Papel:** exibição local no display.  
+**Responsabilidades:** status operacional e mensagens de alerta.
+
+## `HardwareController.h`
+**Papel:** abstração de hardware/periféricos.  
+**Benefício:** reduz acoplamento e facilita evolução da base.
+
+## `partitions.csv`
+**Papel:** layout da flash do ESP32-C6.  
+**Crítico para OTA:** precisa manter partição adequada para app e atualização.
+
+---
+
+## 5) API / rotas prováveis
+
+> Rotas inferidas da estrutura dos módulos; ajuste conforme implementação real.
+
+### 5.1 Mapa visual de rotas
 
 ```mermaid
-graph TD
-    A["🔌 Power On"] --> B["⚙️  Init Hardware"]
-    B --> C["📖 Ler Preferences"]
-    C --> D{"Tem Wi-Fi salvo?"}
-    
-    D -->|Sim| E["🔗 WiFi.begin"]
-    E --> F{"Conectou?"}
-    F -->|Sim| G["🚀 UDP / Web / Metrics Ready"]
-    F -->|Não| H["AP Mode"]
-    
-    D -->|Não| H
-    H --> I["📡 SoftAP Config"]
-    I --> J["🌐 Portal Web"]
-    J --> K["💾 Salva SSID"]
-    K --> L["🔄 Restart"]
-    
-    G --> M["🕐 NTP Sync"]
-    M --> N["✅ Sistema pronto"]
+flowchart LR
+    U[Usuário / Ferramenta] --> R1["GET /"]
+    U --> R2["GET /dashboard"]
+    U --> R3["GET /metrics"]
+    U --> R4["GET /metrics-page"]
+    U --> R5["POST /api/command"]
+    U --> R6["POST /api/ota/upload"]
+    U --> R7["POST /api/ota/apply"]
+    U --> R8["GET /health"]
+```
+
+### 5.2 Páginas web
+
+- `GET /` — dashboard inicial
+- `GET /dashboard` — visão geral
+- `GET /metrics-page` — métricas human-readable
+- `GET /ota` — upload de firmware
+
+### 5.3 API de estado/métricas
+
+- `GET /health` — health check
+- `GET /status` — snapshot JSON
+- `GET /metrics` — endpoint para scraping/Prometheus
+
+### 5.4 API operacional
+
+- `POST /api/command` — comandos gerais
+- `POST /api/reboot` — reboot
+- `POST /api/wifi/reconnect` — reconexão de rede
+- `POST /api/time/sync` — sincronização NTP
+
+### 5.5 API OTA
+
+- `GET /api/ota/status`
+- `POST /api/ota/upload`
+- `POST /api/ota/apply`
+- `POST /api/ota/cancel`
+
+### 5.6 Estado OTA (conceitual)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Uploading: /api/ota/upload
+    Uploading --> Validating
+    Validating --> ReadyToApply: imagem OK
+    Validating --> Failed: imagem inválida
+    ReadyToApply --> Applying: /api/ota/apply
+    Applying --> Rebooting
+    Rebooting --> Idle: boot OK
+    Failed --> Idle
 ```
 
 ---
 
-## 🎨 Estados visuais do LED
+## 6) Build, gravação e validação (guia rápido)
 
-O LED RGB indica o estado do sistema em tempo real:
-
-| Cor | Estado | Descrição |
-| :--- | :--- | :--- |
-| 🟢 Verde | Wi‑Fi OK | Conectado e pronto para UDP/Web |
-| 🔵 Azul | Portal Ativo | Modo AP aguardando configuração |
-| 🟡 Amarelo | Conectando | Tentativa de conexão Wi‑Fi |
-| 🔴 Vermelho | Falha | Erro de conexão ou falha crítica |
-| 🟣 Magenta | NTP Sync | Sincronização de hora bem-sucedida |
-| ⚪ Branco | Boot | Inicialização em progresso |
+1. Instalar suporte ESP32 com alvo ESP32-C6.
+2. Abrir `M5NanoC6_wifi.ino`.
+3. Revisar `Config.h`.
+4. Confirmar `partitions.csv` compatível com OTA.
+5. Compilar e gravar.
+6. Validar:
+   - Wi-Fi conectado,
+   - dashboard acessível,
+   - NTP sincronizado,
+   - métricas disponíveis,
+   - OTA funcional.
 
 ---
 
-## 🌐 Portal web
+## 7) Observabilidade e operação contínua
 
-### Tela de configuração (AP Mode)
+### 7.1 Domínios de observação
 
-Quando o dispositivo inicializa sem Wi‑Fi salvo, um portal captivo é ativado em:
-
-```text
-http://192.168.4.1
+```mermaid
+mindmap
+  root((M5NanoC6_wifi))
+    Rede
+      DeviceNetwork
+      NTPService
+    Web
+      WebDashboard
+      MetricsPage
+      OTAUploadPage
+    Observabilidade
+      MetricsService
+      Prometheus
+    Operação
+      CommandHandler
+      OTAService
+    Hardware
+      HardwareController
+      LCDService
+      BluetoothService
+    Integrações
+      WeatherService
 ```
 
-**Interface:**
-- Campo SSID: Nome da rede Wi‑Fi
-- Campo Senha: Senha da rede
-- Botão Salvar: Persiste em Preferences e reinicia
+### 7.2 Itens para monitorar
 
-### Painel de informações (STA Mode)
-
-Quando conectado em modo normal, acesse:
-
-```text
-http://<IP_LOCAL>/info
-```
-
-Para visualizar:
-- Chip modelo e cores
-- RAM livre em KB
-- Tempo de atividade (Uptime)
-- SSID e sinal (RSSI)
-- Data e hora NTP sincronizadas
-- Estado do LCD, BLE e métricas do dispositivo
-- Botão de refresh automático
-
-### Painel de métricas Prometheus
-
-Acesse `http://<IP_LOCAL>/prometheus` para salvar:
-- host do servidor Prometheus
-- porta de coleta
-- intervalo de scrape
-
-O firmware expõe `/metrics` e gera um `prometheus.yml` para facilitar a configuração.
+- uptime,
+- RSSI,
+- memória livre,
+- taxa de erro por módulo,
+- status NTP e OTA.
 
 ---
 
-## ⏰ Sincronização NTP
+## 8) Segurança mínima recomendada
 
-O sistema sincroniza automaticamente com servidores NTP públicos:
-
-- `a.st1.ntp.br` (Brasil)
-- `pool.ntp.org` (Pool global)
-- `time.nist.gov` (NIST - EUA)
-
-**Fuso padrão:** `GMT-3` (Brasília)
-
-**Configurar timezone:**
-```bash
-nc -u 192.168.1.100 4210 <<< "set_fuso:-5"
-```
-
-**Ativar DST (Daylight Saving Time):**
-```bash
-nc -u 192.168.1.100 4210 <<< "dst_on"
-```
+Para endpoints críticos (`/api/command`, OTA):
+- token/chave de API,
+- restrição a LAN,
+- validação rígida de payload e firmware,
+- logs de auditoria para comandos sensíveis.
 
 ---
 
-## 🔧 Troubleshooting
+## 9) Arquivos de documentação complementares no repositório
 
-### Wi‑Fi não conecta
-- ✓ Verifique SSID e senha digitadas corretamente
-- ✓ Use comando `reset_wifi` para limpar credenciais salvas
-- ✓ Confirme alcance do roteador
-- ✓ Verifique serial em 115200 baud para logs de erro
+Além dos fontes, o projeto inclui:
 
-### AP não aparece na busca de redes
-- ✓ Reinicie o dispositivo (desconecte/reconecte USB)
-- ✓ Verifique serial em 115200 baud
-- ✓ Confirme GPIO 19 e 20 funcionando (LEDs piscam)
-- ✓ Tente resetar com botão por >3 segundos
-
-### UDP sem resposta
-- ✓ Confirme IP do dispositivo: `nc -u 192.168.1.100 4210 <<< "alive"`
-- ✓ Verifique porta 4210 liberada no firewall
-- ✓ Teste com `ping` primeiro para confirmar alcance
-- ✓ Verifique serial para erros de parsing
-
-### BLE sem resposta
-- ✓ Confirme conexão ao serviço Nordic UART Service
-- ✓ Envie comandos terminados em LF
-- ✓ Aguarde a resposta antes de mandar o próximo comando
-
-### LCD não responde
-- ✓ Verifique SDA/SCL e alimentação do módulo
-- ✓ Confirme se o endereço I²C foi detectado corretamente
-- ✓ Use `LCD_ON` para reativar a tela
-
-### NTP não sincroniza
-- ✓ Confirme acesso à internet (faz ping em 8.8.8.8?)
-- ✓ Ajuste timezone com `set_fuso` se necessário
-- ✓ Verifique configuração de DNS no roteador
-- ✓ Firewall pode estar bloqueando porta 123 UDP
-
-### LED RGB não responde
-- ✓ Verifique GPIO 19 e 20 em Config.h
-- ✓ Confirme pin de dados do NeoPixel conectado
-- ✓ Teste com comando simples: `led_on`
-- ✓ Verifique tensão de alimentação (5V recomendado)
+- `CHANGELOG.md` e `CHANGELOG.pdf`
+- `COMANDOS.md` e `COMANDOS.pdf`
+- `OTA.md` e `OTA.pdf`
+- `PROMETHEUS.md` e `PROMETHEUS.pdf`
 
 ---
 
-## 📊 Performance
+## 10) Próximos upgrades recomendados
 
-| Métrica | Valor |
-| :--- | :--- |
-| **Boot time** | < 3s (com Wi‑Fi salvo) |
-| **UDP latency** | < 50ms |
-| **RAM utilizada** | ~60KB (heap livre) |
-| **Flash utilizada** | ~350KB (~1% da flash) |
-| **Wi‑Fi reconnect** | < 8s |
-| **Consumo (idle)** | ~50mA @ 3.3V |
-| **NTP sync time** | < 2s (primeira vez) |
+- diagrama oficial de arquitetura com contratos entre módulos,
+- tabela completa de parâmetros de `Config.h`,
+- seção de troubleshooting por sintoma,
+- padronização de resposta JSON para todas as rotas,
+- matriz de compatibilidade de versões (board/framework/libs).
 
 ---
 
-## 🔐 Notas de segurança
+## Licença
 
-⚠️ **Este projeto é otimizado para redes locais confiáveis:**
-
-- ⚠️ UDP **não é criptografado** - comunique apenas em LAN
-- ⚠️ Portal web **sem autenticação** por padrão
-- ⚠️ Não exponha à internet pública sem proteção
-- ⚠️ Proteja com firewall e considere VPN para acesso remoto
-
-**Melhorias recomendadas para produção:**
-1. Implementar autenticação HTTP Basic no portal web
-2. Usar HTTPS com certificado autoassinado
-3. Validar comandos UDP com checksums
-4. Implementar rate-limiting
-5. Logs de auditoria para todas as operações
-
----
-
-## 📚 Documentação adicional
-
-- `COMANDOS.md` — lista completa de comandos e rotas
-- `PROMETHEUS.md` — configuração e métricas Prometheus
-- `WebDashboard.h` — implementação do painel web
-- `MetricsService.h` — origem das métricas coletadas
-
----
-
-## 🤝 Contribuição
-
-Tem uma ideia? Achou um bug? Quer melhorar?
-
-1. **Fork** o repositório
-2. Crie uma **branch** com sua feature: `git checkout -b feature/sua-ideia`
-3. **Commit** suas mudanças: `git commit -m "Adiciona sua feature"`
-4. Faça **push**: `git push origin feature/sua-ideia`
-5. Abra um **Pull Request** com descrição clara
-
----
-
-## 📄 Licença
-
-Este repositório ainda não possui licença explícita. Para publicar oficialmente, considere adicionar uma das seguintes:
-- **MIT** - Permissiva, simples
-- **Apache 2.0** - Permissiva com proteção de patentes
-- **GPL 3.0** - Copyleft, código aberto obrigatório
-
----
-
-## 📞 Suporte e feedback
-
-- 🐛 **Issues:** https://github.com/paulocfmarques-collab/M5NanoC6_wifi/issues
-- 📬 **Pull Requests:** https://github.com/paulocfmarques-collab/M5NanoC6_wifi/pulls
-- 💬 **Discussões:** https://github.com/paulocfmarques-collab/M5NanoC6_wifi/discussions
-
----
-
-<div align="center">
-
-### ⭐ Se este projeto ajudou você, considere dar uma estrela!
-
-**Feito com ❤️ para a comunidade ESP32 e IoT**
-
-![Last commit](https://img.shields.io/github/last-commit/paulocfmarques-collab/M5NanoC6_wifi?style=flat-square&logo=github)
-![Repository size](https://img.shields.io/github/repo-size/paulocfmarques-collab/M5NanoC6_wifi?style=flat-square&logo=github)
-![Code size](https://img.shields.io/github/languages/code-size/paulocfmarques-collab/M5NanoC6_wifi?style=flat-square&logo=c%2B%2B)
-
-</div>
+Nenhum arquivo `LICENSE` foi identificado na raiz durante este levantamento.  
+Recomendado adicionar uma licença explícita para definir uso/distribuição.
