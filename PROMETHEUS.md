@@ -1,5 +1,39 @@
 # Prometheus no M5NanoC6
 
+## Home Assistant / MQTT
+
+As métricas `mqtt_connected` (gauge), `mqtt_messages_sent`,
+`mqtt_messages_received` e `mqtt_publish_errors` (counters) agora são
+publicadas pelo cliente MQTT real. Os contadores zeram no boot.
+Publicações incluem discovery, disponibilidade e estado; recebimentos
+incluem comandos e notificações `homeassistant/status`. Falhas de conexão
+não incrementam erros de publicação; consulte `mqtt_connected` e o código
+na página `/homeassistant`. Sucesso de publish confirma envio local, não
+processamento pelo broker ou pelo Home Assistant.
+
+## Monitoramento UDP
+
+| Métrica | Tipo | Significado |
+| --- | --- | --- |
+| `esp_udp_listener_up` | gauge | 1 quando a abertura da porta UDP 4210 teve sucesso e o Wi-Fi está conectado; 0 antes da abertura, em falha, desconexão ou portal AP. |
+| `esp_udp_packets_received_total` | counter | Datagramas não vazios reconhecidos por `parsePacket()`, antes de interpretar o comando, inclusive comandos inválidos e pacotes maiores que o buffer. |
+| `esp_udp_replies_sent_total` | counter | Respostas completas com escrita de todos os bytes e `endPacket()` bem-sucedido. Confirma envio local, não entrega ao destinatário. |
+| `esp_udp_send_errors_total` | counter | Tentativas de resposta com falha em `beginPacket()`, escrita incompleta ou falha em `endPacket()`. Cada tentativa falha incrementa uma vez. |
+
+As quatro séries usam o label `device` do restante das métricas. Os contadores
+são mantidos em RAM e zeram ao reiniciar; reabrir a porta não os zera. O
+listener é fechado na recuperação de rede e ao entrar no portal AP, onde os
+comandos UDP não são atendidos. Uma falha inicial de abertura só é corrigida
+após uma nova chamada de inicialização (por exemplo, na reconexão).
+O restante de um datagrama maior que o buffer de comando é descartado para
+não impedir a leitura dos próximos. Datagramas vazios não são contabilizados,
+pois a API usada não os distingue de ausência de pacote.
+
+Exemplos: `rate(esp_udp_packets_received_total[5m])` para tráfego recebido,
+`increase(esp_udp_send_errors_total[1h])` para erros na última hora e
+`esp_udp_listener_up == 0` para listener indisponível. Use também `up` para
+detectar a ausência completa do dispositivo.
+
 ## Configuração pela web
 
 1. Abra o painel do ESP32 e entre em **Prometheus**, ou acesse `/prometheus`.
@@ -102,7 +136,6 @@ Estas séries **não são publicadas** nesta configuração:
 | `sensor_pressure_hpa`, `sensor_air_quality` | Sensores correspondentes e seus drivers. |
 | `relay_state`, `relay_activation_count`, `relay_runtime_seconds` | Relés, definição de pinos e lógica de acionamento/contagem. |
 | `gpio_analog_value` | Entrada analógica definida e calibrada. GPIO1/GPIO2 continuam dedicados ao LCD I²C. |
-| `mqtt_connected`, `mqtt_messages_sent`, `mqtt_messages_received`, `mqtt_publish_errors` | Cliente MQTT, broker e instrumentação; o projeto usa UDP/BLE/Serial/HTTP. |
 
 ## Diagnóstico de conexão recusada
 

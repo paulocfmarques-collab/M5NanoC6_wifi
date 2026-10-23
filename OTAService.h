@@ -69,9 +69,13 @@ public:
 
     void begin(WebServer& web) {
         Serial.println("[OTA] Atualizacao sem senha disponivel em /ota.");
+        if (!capacity()) {
+            Serial.println(
+                "[OTA] ArduinoOTA indisponivel: grave por USB para instalar a tabela de particoes OTA.");
+        }
         ArduinoOTA.setHostname("M5NanoC6");
         ArduinoOTA.setPort(3232);
-        ArduinoOTA.setPassword("");
+        // No core 3.3.12, setPassword("") ativa autenticacao com hash da senha vazia.
         ArduinoOTA.setMdnsEnabled(true);
         ArduinoOTA.onStart([this]() {
             networkProgress = 255;

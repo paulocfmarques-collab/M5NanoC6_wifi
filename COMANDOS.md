@@ -4,7 +4,29 @@ Revisão documental: **31/10/2026**.
 [Histórico local](CHANGELOG.md) e
 [catálogo geral](../../ESP32_Documents/COMANDOS.md).
 
+## Home Assistant
+
+| Comando UDP/Serial | Função |
+| --- | --- |
+| `HA_USER` | Retorna o usuário MQTT cadastrado. |
+| `HA_PASSWORD` | Retorna a senha MQTT cadastrada em texto. |
+| `HA_STATUS` | Mostra ativação, Wi-Fi/MQTT, broker, código de conexão e andamento do discovery. |
+| `HA_DISCOVERY` | Agenda a republicação das 12 entidades; solicita conexão se necessário. |
+
+As respostas voltam pelo mesmo canal. Sem credencial salva, informa que não
+está cadastrada. Aceita também `ha_user` e `ha_password` em minúsculas.
+
+Abra `/homeassistant` ou o botão **Home Assistant** no painel. Configure
+broker MQTT, porta (padrão 1883), usuário/senha opcionais, intervalo e ative
+a integração. O endereço é o do **broker**, que pode ser diferente do servidor
+Home Assistant. A descoberta usa MQTT, não a porta ArduinoOTA.
+Veja [HOME_ASSISTANT.md](HOME_ASSISTANT.md) para instalar e usar.
+
 ## Prometheus
+
+O endpoint `/metrics` também publica estado do listener UDP e contadores de
+pacotes recebidos, respostas enviadas e erros de envio. Veja os nomes e
+critérios de contagem em [PROMETHEUS.md](PROMETHEUS.md#monitoramento-udp).
 
 No painel web, abra **Prometheus** (`/prometheus`) para salvar o endereço do
 servidor, porta e intervalo nas preferências. A coleta é feita pelo servidor
@@ -31,6 +53,10 @@ ficar completo. Exemplos: `HELP`, `LCD_OFF`, `LCD_ON`, `NTP_STATUS`.
 A configuração de Prometheus é feita pela web, sem novos comandos de configuração
 UDP/Serial.
 
+A resposta de `HELP` começa com `COMANDOS` e lista um comando por linha,
+com argumentos após `:`. Descrições e instruções de transporte ficam fora da
+lista para facilitar o parseamento automático.
+
 ## Ligar e desligar a tela
 
 | Comando | Função |
@@ -47,7 +73,11 @@ A tela volta ligada após reiniciar; esse ajuste não é salvo na memória.
 Desligar a tela não corta a alimentação elétrica do adaptador.
 
 O botão integrado do NanoC6 ([GPIO9](https://docs.m5stack.com/en/core/NanoC6))
-também alterna a tela: um toque desliga, outro liga. Segurar não repete a ação.
+tem três funções: com a tela ligada, um toque alterna entre início e rede;
+segurar por 3 segundos desliga conteúdo e iluminação; com a tela desligada,
+um toque religa na tela inicial. O toque que religa não alterna a página.
+A tela de rede retorna ao início após 15 segundos sem interação no botão.
+A ação de toque ocorre ao soltar; manter pressionado não repete ações.
 O filtro de 35 ms evita acionamentos duplicados por oscilação do contato.
 O botão acompanha o estado atual, inclusive após comandos pela web, UDP ou Serial.
 
@@ -144,18 +174,27 @@ nessa faixa, defina o endereço do LCD em `Config::LCD_ENDERECO`.
 Os logs Serial a 115200 baud mostram o endereço encontrado ou a falha.
 Ausência do LCD não impede o funcionamento do firmware.
 
-| Linha | Conteúdo |
-| --- | --- |
-| 1 | Data e hora local |
-| 2 | IP local ou IP do portal |
-| 3 | Máxima e mínima previstas para hoje (°C) e umidade atual (%) |
-| 4 | Temperatura em °C e condição do tempo em Porto Alegre, RS |
+O LCD possui duas telas. Ao ligar/religar, abre sempre a tela inicial.
+
+| Linha | Tela inicial | Tela de rede |
+| --- | --- | --- |
+| 1 | Ícone de calendário, data e hora local | Ícone de rede e estado Wi-Fi/AP |
+| 2 | Ícones de máxima/mínima e valores em °C | IP da estação ou portal AP |
+| 3 | Temperatura atual em °C e `Umid:80%` | Nome da rede (SSID) |
+| 4 | Ícone e descrição completa do clima | RSSI em dBm e canal Wi-Fi |
+
+Os ícones são caracteres personalizados do HD44780, sem biblioteca adicional.
+Descrições meteorológicas e nomes de rede longos rolam nas 20 colunas após
+uma pausa inicial de 2 segundos. A tela de rede volta ao início após 15 s
+sem interação no botão. Umidade continua disponível também no painel/HA.
 
 A tela atualiza a cada segundo durante o loop normal; durante busca/conexão
-Wi-Fi bloqueante, mantém a última tela. Textos longos são cortados em 20
-colunas; caracteres fora do ASCII aparecem como `?`. Antes de ter hora válida,
-aparecem `00/00/0000` e `00:00:00`. Se acender sem letras, ajuste o potenciômetro
-de contraste do adaptador. Uma falha I2C desativa a atualização até reiniciar.
+Wi-Fi bloqueante, mantém a última tela e o atendimento do botão pode atrasar.
+Caracteres fora do ASCII e dos ícones definidos aparecem como `?`. A prévia
+web representa os ícones por símbolos Unicode, com `lcd.tela` igual a 1 ou 2
+na API de status. Antes de ter hora válida, aparecem `00/00/0000` e `00:00:00`.
+Se acender sem letras, ajuste o contraste do adaptador. Falha I2C desativa
+as atualizações até reiniciar.
 
 ### Clima de Porto Alegre
 
@@ -166,9 +205,12 @@ válida. Atualiza a cada 10 minutos, em tarefa separada do loop; após falha,
 tenta novamente em 2 minutos. Requer ArduinoJson 7 (instalado: 7.4.3) e
 Arduino ESP32 3.3.12, com pacote de certificados habilitado.
 
-Na terceira linha, `Max:24 Min:16 U80%` significa máxima de 24 °C, mínima de 16 °C e umidade atual de 80%. Se necessário, os rótulos passam a `Mx` e `Mn` para caber nas 20 colunas. Máxima e mínima são previsões para o dia de Porto Alegre. Valores ausentes aparecem como `--`. Na quarta linha, a descrição usa até as 20 colunas, sem cortar palavras; a temperatura usa uma casa decimal quando couber. Exemplo: `16.8C Garoa leve`. Um `*` indica que a última
-consulta falhou ou que o Wi-Fi caiu: o último resultado é conservado por até
-30 minutos. Sem dados, a linha mostra o motivo: buscando, sem Wi-Fi,
+Na tela inicial, máxima e mínima são previsões para o dia de Porto Alegre;
+temperatura e umidade são condições atuais externas. Valores ausentes aparecem
+como `--`. A umidade fica na terceira linha junto da temperatura atual;
+a quarta linha é dedicada à descrição do clima. Um `*` na terceira linha
+indica consulta anterior após falha ou queda do Wi-Fi, conservada por até
+30 minutos. Sem dados válidos, a descrição informa buscando, sem Wi-Fi,
 aguardando hora ou indisponível. As coordenadas ficam em `Config.h`.
 O estado NTP continua disponível pelos comandos `NTP_STATUS` e `STATUS` e
 pelo painel web.

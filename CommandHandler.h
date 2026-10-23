@@ -7,6 +7,7 @@
 #include "NTPService.h"
 #include "LCDService.h"
 #include "MetricsService.h"
+#include "HomeAssistantService.h"
 
 extern MetricsService metrics;
 
@@ -38,34 +39,68 @@ class CommandHandler
 
         if (cmd == "help")
         {
-            resposta = "==============================================\n"
-                       "Comandos Disponiveis:\n"
-                       "Canais: UDP 4210 / Serial 115200 (LF)\n"
-                       "--- Sistema ---\n"
-                       "INFO / STATUS / VERSION / BUILD / REASON\n"
-                       "REBOOT               - Reinicia o ESP32\n"
-                       "RESET_COUNTERS       - Zera contadores NVS de boot/watchdog\n"
-                       "RESET_WIFI           - Apaga config de rede\n"
-                       "ALIVE                - Teste de presenca\n"
-                       "NAME                 - Exibe o nome do dispositivo\n"
-                       "--- Hardware ---\n"
-                       "TEMP / CPU / RAM / HEAP / FLASH / UPTIME\n"
-                       "--- Rede ---\n"
-                       "NET_INFO / MAC / RSSI / IP\n"
-                       "--- Hora ---\n"
-                       "TIME / DATE / SET_FUSO:<n> / DST_ON / DST_OFF\n"
-                       "NTP_SYNC             - Forca nova sincronizacao NTP\n"
-                       "NTP_STATUS           - Consulta resultado da sincronizacao\n"
-                       "--- LED RGB ---\n"
-                       "LED_ON / LED_OFF / LED_BLINK[:ms] / SET_RGB:R,G,B\n"
-                       "SET_BREATH:R,G,B,MS\n"
-                       "--- Tela LCD ---\n"
-                       "LCD_ON / LCD_OFF     - Liga/desliga tela e iluminacao\n"
-                       "OTA: pagina /ota ou Arduino IDE pela rede (sem senha)\n"
-                       "--- Outros ---\n"
-                       "IR_TX                - Pulso infravermelho\n"
-                       "==============================================";
+            resposta = "COMANDOS\n"
+                       "help\n"
+                       "info\n"
+                       "status\n"
+                       "version\n"
+                       "build\n"
+                       "reason\n"
+                       "reboot\n"
+                       "reset_counters\n"
+                       "reset_wifi\n"
+                       "alive\n"
+                       "name\n"
+                       "ha_user\n"
+                       "ha_password\n"
+                       "ha_status\n"
+                       "ha_discovery\n"
+                       "temp\n"
+                       "cpu\n"
+                       "ram\n"
+                       "heap\n"
+                       "flash\n"
+                       "uptime\n"
+                       "net_info\n"
+                       "mac\n"
+                       "rssi\n"
+                       "ip\n"
+                       "time\n"
+                       "date\n"
+                       "set_fuso:N\n"
+                       "dst_on\n"
+                       "dst_off\n"
+                       "ntp_sync\n"
+                       "ntp_status\n"
+                       "led_on\n"
+                       "led_off\n"
+                       "led_blink[:ms]\n"
+                       "set_rgb:R,G,B\n"
+                       "set_breath:R,G,B,MS\n"
+                       "lcd_on\n"
+                       "lcd_off\n"
+                       "ir_tx\n";
             responder(resposta + "\n");
+        }
+        else if (cmd == "ha_status")
+        {
+            responder(homeassistant.status());
+        }
+        else if (cmd == "ha_discovery")
+        {
+            responder(homeassistant.requestDiscovery()
+                          ? "HA_DISCOVERY: AGENDADO. Consulte HA_STATUS para acompanhar.\n"
+                          : "HA_DISCOVERY: INDISPONIVEL. Ative e configure a integracao em /homeassistant.\n");
+        }
+        else if (cmd == "ha_user")
+        {
+            String user = homeassistant.configuration().user;
+            responder("HA_USER: " + (user.isEmpty() ? String("(nao cadastrado)") : user) + "\n");
+        }
+        else if (cmd == "ha_password")
+        {
+            String password = homeassistant.configuration().password;
+            responder("HA_PASSWORD: " + (password.isEmpty() ? String("(nao cadastrada)") : password) + "\n");
         }
         else if (cmd == "name")
         {

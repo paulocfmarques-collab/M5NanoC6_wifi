@@ -1,5 +1,55 @@
 # Changelog
 
+## 2026-10-21
+
+- LCD com duas telas e ícones HD44780: início com data/hora, máxima/mínima,
+  temperatura atual, umidade e descrição do clima; rede com estado, IP, SSID,
+  RSSI e canal. Descrições/SSID longos usam rolagem.
+- Botão GPIO9: toque alterna páginas, 3 s pressionado desliga; desligado, toque
+  religa no início sem alternar. Rede volta ao início após 15 s sem interação.
+- Prévia web com símbolos dos ícones e API `lcd.tela`; testes nativos do driver
+  e botão aprovados. Compilação e validação física continuam com o usuário.
+
+
+- `HA_STATUS` por UDP/Serial mostra conexão e andamento; `HA_DISCOVERY` agenda
+  republicação das 12 entidades e solicita reconexão quando necessário.
+- Barra OTA visível desde a abertura de `/ota`, percentual numérico e etapas
+  de envio/validação/reinício; erro encerra a indicação de espera e permite repetir.
+- Comandos `HA_USER` e `HA_PASSWORD` por UDP/Serial retornam as credenciais
+  MQTT salvas, incluindo a senha em texto, conforme solicitado. HELP e docs
+  atualizados; sem alteração das prefs ou da API web.
+- Integração Home Assistant por MQTT Discovery, com 12 entidades, identidade
+  baseada na MAC, disponibilidade por Last Will e redescoberta no nascimento do HA.
+- Página `/homeassistant` e API de configuração persistida no namespace `m5ha`,
+  broker/porta/usuário/senha/intervalo; senha não é devolvida pela API.
+- Controles de LCD/LED, botões NTP/IR e sensores de CPU, heap, uptime, RSSI e
+  clima de Porto Alegre. Estado atualizado também após ações de outros canais.
+- Métricas MQTT reais no Prometheus; reconexão com intervalo de 30 segundos.
+- Dependência PubSubClient 2.8, já disponível neste ambiente. Compilação pelo usuário.
+- Testes locais aprovados: serviço real com ArduinoJson real e broker/hardware
+  simulados, discovery das 12 entidades, persistência, comandos/reconexão,
+  formulário de configuração e contadores MQTT no Prometheus. Broker/HA reais
+  e tamanho final do firmware dependem de compilação e gravação pelo usuário.
+- Padronizada a resposta de `help` com o cabeçalho `COMANDOS` e um comando por
+  linha; atualizados o guia local e o catálogo geral para facilitar o parser.
+
+
+## 2026-10-19
+
+- Corrigida autenticação involuntária do ArduinoOTA no core ESP32 3.3.12:
+  removida a chamada `setPassword("")`, que gerava hash da senha vazia.
+  Instale a correção por OTA web ou USB antes de voltar ao envio pela IDE.
+- Métricas UDP: `esp_udp_listener_up`, `esp_udp_packets_received_total`,
+  `esp_udp_replies_sent_total` e `esp_udp_send_errors_total`.
+- Abertura da porta verifica o retorno real; respostas verificam abertura,
+  quantidade escrita e resultado do envio. Contadores em RAM por inicialização.
+- Socket fechado na recuperação de Wi-Fi e no portal AP; descarte do restante
+  de datagramas longos evita bloquear a recepção dos próximos.
+- Documentação das séries, critérios de contagem e consultas PromQL.
+- Teste nativo aprovado: valores iniciais, estado do listener, incrementos de
+  recepção/sucesso/erro, preservação ao reabrir, reset no boot e formato Prometheus.
+  Compilação do firmware e teste físico continuam a cargo do usuário.
+
 ## 2026-10-31 — Reset dos contadores NVS
 
 - Adicionado `reset_counters` para zerar os contadores persistentes de

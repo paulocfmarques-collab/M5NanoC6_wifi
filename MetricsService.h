@@ -40,6 +40,10 @@ class MetricsService
     uint32_t imageBytes = 0, partitionBytes = 0;
     std::atomic<uint32_t> disconnects{0};
     uint64_t requests = 0, errors = 0;
+    bool udpListener = false;
+    uint64_t udpPackets = 0, udpReplies = 0, udpSendErrors = 0;
+    bool mqttConnected = false;
+    uint64_t mqttSent = 0, mqttReceived = 0, mqttErrors = 0;
     double responseMs = 0;
     uint32_t lastCpuSample = 0;
     float cpuUsage = NAN;
@@ -224,6 +228,16 @@ class MetricsService
         update();
     }
 
+    void setUdpListener(bool opened) { udpListener = opened; }
+    void setMqttConnected(bool connected) { mqttConnected = connected; }
+    void recordMqttReceived() { ++mqttReceived; }
+    void recordMqttPublish(bool success) { if(success) ++mqttSent; else ++mqttErrors; }
+    void recordUdpPacket() { ++udpPackets; }
+    void recordUdpReply(bool success) {
+        if (success) ++udpReplies;
+        else ++udpSendErrors;
+    }
+
     void recordHttp(uint64_t elapsedUs, int status)
     {
         ++requests;
@@ -343,6 +357,14 @@ class MetricsService
                String(digitalRead(Config::PIN_BOTAO) == HIGH ? 1 : 0),
                label("pin", String(Config::PIN_BOTAO)));
         sample(out, "application_requests_total", "counter", String(requests));
+        sample(out, "esp_udp_listener_up", "gauge", udpListener && connected ? "1" : "0");
+        sample(out, "mqtt_connected", "gauge", mqttConnected && connected ? "1" : "0");
+        sample(out, "mqtt_messages_sent", "counter", String(mqttSent));
+        sample(out, "mqtt_messages_received", "counter", String(mqttReceived));
+        sample(out, "mqtt_publish_errors", "counter", String(mqttErrors));
+        sample(out, "esp_udp_packets_received_total", "counter", String(udpPackets));
+        sample(out, "esp_udp_replies_sent_total", "counter", String(udpReplies));
+        sample(out, "esp_udp_send_errors_total", "counter", String(udpSendErrors));
         sample(out, "application_errors_total", "counter", String(errors));
         sample(out, "application_response_time_ms", "gauge", String(responseMs, 3));
         return out;

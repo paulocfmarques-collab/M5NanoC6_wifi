@@ -7,6 +7,7 @@
 #include "CommandHandler.h"
 #include "NTPService.h"
 #include "LCDService.h"
+#include "LCDButton.h"
 
 // --- INSTÂNCIAS GLOBAIS REAIS (ADICIONE ESTAS 3 LINHAS ABAIXO DOS INCLUDES) ---
 HardwareController hardware;
@@ -15,6 +16,7 @@ NTPService ntp;
 LCDService lcd;
 WeatherService clima;
 MetricsService metrics;
+HomeAssistantService homeassistant;
 
 // Recepcao limitada por passagem: nao aguarda quebra de linha nem bloqueia o loop.
 void processarSerial()
@@ -50,27 +52,13 @@ void processarSerial()
 
 void processarBotao()
 {
-    bool leitura = digitalRead(Config::PIN_BOTAO) == LOW;
-    static bool anterior = leitura;
-    static bool estavel = leitura;
-    static unsigned long alteradoEm = millis();
-    if (leitura != anterior)
-    {
-        anterior = leitura;
-        alteradoEm = millis();
-    }
-    if (leitura == estavel || millis() - alteradoEm < 35UL)
-        return;
-    estavel = leitura;
-    // Uma acao por pressionamento; soltar e manter pressionado nao repetem.
-    if (estavel)
-    {
-        bool ligar = !lcd.estaLigado();
-        if (lcd.definirLigado(ligar))
-            Serial.println(ligar ? "[BOTAO] LCD ligado." : "[BOTAO] LCD desligado.");
-        else
-            Serial.println("[BOTAO] LCD indisponivel ou falha I2C.");
-    }
+    static LCDButton botao;
+    bool pressionado=digitalRead(Config::PIN_BOTAO)==LOW;
+    if(pressionado)lcd.registrarInteracao();
+    auto acao=botao.update(pressionado,lcd.estaLigado(),millis());
+    if(acao==LCDButton::Wake)lcd.definirLigado(true);
+    else if(acao==LCDButton::NextPage)lcd.alternarTela();
+    else if(acao==LCDButton::TurnOff)lcd.definirLigado(false);
 }
 
 void setup()
@@ -80,6 +68,7 @@ void setup()
     // Inicializa os pinos e periféricos
     hardware.begin();
     metrics.begin();
+    homeassistant.begin([](String command){CommandHandler::executar(command,true);});
     lcd.begin();
 
     // Inicia a tentativa de conexão na lista circular por RSSI
@@ -102,6 +91,7 @@ void loop()
     network.monitorarConexao();
     ntp.atualizar();
     lcd.atualizar();
+    homeassistant.update();
 
     // Verifica mensagens UDP recebidas
     String cmdUdp;

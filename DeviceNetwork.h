@@ -15,6 +15,8 @@
 #include <ArduinoJson.h>
 #include "MetricsService.h"
 #include "MetricsPage.h"
+#include "HomeAssistantService.h"
+#include "HomeAssistantPage.h"
 
 class DeviceNetwork
 {
@@ -167,6 +169,7 @@ class DeviceNetwork
         JsonObject display = dados["lcd"].to<JsonObject>();
         display["ativo"] = lcd.estaAtivo();
         display["ligado"] = lcd.estaLigado();
+        display["tela"] = lcd.obterTela();
         if (lcd.estaAtivo())
         {
             char endereco[8];
@@ -335,6 +338,30 @@ class DeviceNetwork
             return;
         rotasConfiguradas = true;
         ota.begin(server);
+        server.on("/homeassistant", HTTP_GET, [this]() {
+            server.sendHeader("Cache-Control", "no-store");
+            server.send(200,"text/html; charset=utf-8",homeAssistantPage);
+        });
+        server.on("/api/homeassistant/config",HTTP_GET,[this](){responderConfigHomeAssistant();});
+        server.on("/api/homeassistant/config",HTTP_POST,[this](){
+            String host=server.arg("host");host.trim();
+            uint16_t port,interval;
+            String enabled=server.arg("enabled"),clear=server.arg("clear_password");
+            if((enabled!="0"&&enabled!="1")||(clear!="0"&&clear!="1")||
+                ((enabled=="1"||host.length())&&!MetricsService::validHost(host))||
+                !MetricsService::parseNumber(server.arg("port"),1,65535,port)||
+                !MetricsService::parseNumber(server.arg("interval"),5,3600,interval)||
+                server.arg("user").length()>64||server.arg("password").length()>128) {
+                server.send(400,"text/plain; charset=utf-8","Confira broker, porta, credenciais e intervalo 5..3600 s.");return;
+            }
+            String password=server.arg("password");
+            if(clear=="1")password="";
+            else if(password.isEmpty())password=homeassistant.configuration().password;
+            if(!homeassistant.save(enabled=="1",host,port,server.arg("user"),password,interval)) {
+                server.send(503,"text/plain; charset=utf-8","Nao foi possivel salvar nas preferencias.");return;
+            }
+            responderConfigHomeAssistant();
+        });
         auto registrarHttp =
             [](WebServer& web, Middleware::Callback next)
             {
@@ -539,6 +566,15 @@ class DeviceNetwork
                   });
     }
 
+    void responderConfigHomeAssistant() {
+        const auto& config=homeassistant.configuration();JsonDocument doc;
+        doc["enabled"]=config.enabled;doc["host"]=config.host;doc["port"]=config.port;
+        doc["user"]=config.user;doc["interval"]=config.interval;doc["has_password"]=config.password[0]!=0;
+        doc["connected"]=homeassistant.connected();doc["connection_state"]=homeassistant.connectionState();
+        doc["device_id"]=homeassistant.deviceId();String json;serializeJson(doc,json);
+        server.sendHeader("Cache-Control","no-store");server.send(200,"application/json; charset=utf-8",json);
+    }
+
     void responderConfigPrometheus()
     {
         const auto& config = metrics.configuration();
@@ -729,6 +765,8 @@ class DeviceNetwork
 
             if (WiFi.status() != WL_CONNECTED)
             {
+                udp.stop();
+                metrics.setUdpListener(false);
                 Serial.println(
                     F("[WIFI] Alerta: Conexao perdida! Iniciando recuperacao circular..."));
                 // Avisa visualmente piscando o LED em amarelo antes de reiniciar a busca
@@ -740,6 +778,8 @@ class DeviceNetwork
 
     void iniciarPortal()
     {
+        udp.stop();
+        metrics.setUdpListener(false);
         modoAP = true;
         WiFi.softAPdisconnect(true);
         WiFi.disconnect(true);
@@ -766,16 +806,28 @@ class DeviceNetwork
 
     void iniciarUDP()
     {
-        udp.begin(Config::UDP_PORT);
+        udp.stop();
+        bool opened = udp.begin(Config::UDP_PORT) == 1;
+        metrics.setUdpListener(opened);
+        if (!opened)
+        {
+            Serial.println(F("[UDP] Falha ao abrir a porta de comandos."));
+            return;
+        }
         hardware.setLedColor(0, 255, 0, 15);
         Serial.println(F("[UDP] Escutando comandos..."));
     }
 
     void responderUDP(const String& resposta)
     {
-        udp.beginPacket(udp.remoteIP(), udp.remotePort());
-        udp.print(resposta);
-        udp.endPacket();
+        if (udp.beginPacket(udp.remoteIP(), udp.remotePort()) != 1)
+        {
+            metrics.recordUdpReply(false);
+            return;
+        }
+        size_t written = udp.print(resposta);
+        bool sent = udp.endPacket() == 1;
+        metrics.recordUdpReply(sent && written == resposta.length());
     }
 
     bool checarMensagensUDP(String& msgOut)
@@ -784,10 +836,12 @@ class DeviceNetwork
             return false;
 
         int packetSize = udp.parsePacket();
-        if (packetSize)
+        if (packetSize > 0)
         {
+            metrics.recordUdpPacket();
             char buffer[256];
             int len = udp.read(buffer, sizeof(buffer) - 1);
+            udp.flush(); // Descarta o restante deste datagrama, sem bloquear os proximos.
             if (len > 0)
             {
                 buffer[len] = '\0';

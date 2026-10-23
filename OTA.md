@@ -29,6 +29,24 @@ contadores e outras prefs. A região NVS permanece em 0x9000, com 0x5000 bytes.
 O espaço de SPIFFS mudou; arquivos de uma eventual instalação anterior não
 são migrados. Este projeto não usa SPIFFS para guardar as preferências.
 
+## Gravar pela Arduino IDE (primeira vez, por USB)
+
+1. Abra `M5NanoC6_wifi/M5NanoC6_wifi.ino` na Arduino IDE e selecione a placa
+   **M5Stack NanoC6** e a porta USB da placa.
+2. Em **Ferramentas → Partition Scheme**, selecione **Huge APP** se necessário
+   para permitir compilar o binário atual. Embora o nome dessa opção indique
+   que não há OTA, o `partitions.csv` incluído na pasta do sketch substitui a
+   tabela do menu durante a compilação e instala as duas partições OTA deste
+   projeto.
+3. Clique em **Verificar/Compilar** e depois em **Carregar** para gravar pela
+   USB. Não use “Erase All Flash” se quiser preservar as preferências.
+
+O limite exibido pela IDE pode ser o da opção **Huge APP**, maior que o espaço
+real de uma aplicação OTA. Confirme que o arquivo compilado
+`M5NanoC6_wifi.ino.bin` tem no máximo **1.966.080 bytes**; o serviço OTA rejeita
+imagens maiores. Depois da primeira gravação, conecte a placa ao Wi-Fi e siga
+as instruções abaixo para enviar pela rede.
+
 ## Gravar pela Arduino IDE (porta de rede)
 
 O firmware anuncia `M5NanoC6` pelo mDNS e atende ArduinoOTA na porta **3232**,
@@ -37,6 +55,26 @@ sem senha. Após instalar esta versão e conectar o ESP32 ao Wi-Fi:
 1. Mantenha computador e ESP32 na mesma rede local. O computador pode usar Ethernet.
 2. Na Arduino IDE, selecione a placa M5NanoC6 e abra **Ferramentas → Porta**.
 3. Escolha a porta de rede `M5NanoC6` com o IP do ESP32 e faça o upload normal.
+
+O progresso da gravação pela rede é mostrado pela própria IDE. A barra de
+progresso da página `/ota` é para atualizações feitas pelo navegador.
+
+### Falha de autenticação no core ESP32 3.3.12
+
+Nesse core, chamar `ArduinoOTA.setPassword("")` ativa a autenticação com o
+hash de uma senha vazia. Para funcionar sem senha, o firmware não chama
+`setPassword` nem `setPasswordHash`.
+
+Se a placa ainda executa a versão com essa chamada e o envio pela IDE falha
+com `Authentication Failed`, instale o firmware corrigido por USB ou envie
+somente o novo `M5NanoC6_wifi.ino.bin` em `http://IP_DO_ESP32/ota`, desde que
+a tabela OTA já esteja instalada. Repetir o envio pela IDE não atualiza o
+código que está rodando na placa.
+
+Após reiniciar, selecione novamente a porta de rede `M5NanoC6` na IDE.
+O firmware corrigido não exige senha; não use `123456`. Se a IDE continuar
+pedindo senha com dados antigos de descoberta, reabra a IDE e selecione
+novamente a porta de rede.
 
 Se a versão atualmente instalada só possui OTA web, você pode enviar esta
 versão por `/ota` para ativar o anúncio da IDE, desde que a tabela OTA já
@@ -65,7 +103,10 @@ O OTA web continua disponível na porta 80; a porta de métricas é independente
    após validar o binário e volta ao painel. Mantenha a alimentação durante o processo.
 
 A barra mostra o percentual enviado pelo navegador enquanto o ESP32 recebe
-e grava os blocos. Ao concluir o envio, fica em modo de espera pela validação;
+e grava os blocos. Ao concluir o envio, aguarda a validação do arquivo.
+Ela fica visível desde a abertura de `/ota`, com percentual numérico e etapas
+de envio, validação e reinício. Na Arduino IDE, acompanhe o progresso nativo
+da IDE; a barra web corresponde aos envios iniciados pela própria página.
 100% enviado ainda não confirma que o firmware foi aprovado. Após a resposta
 de sucesso, a página informa o reinício e libera o link para abrir o painel.
 Falhas mostram o motivo e liberam uma nova tentativa. O navegador também

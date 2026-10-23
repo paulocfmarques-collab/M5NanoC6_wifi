@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..",
+  "builtInLibrariesFolders": "C:\\Users\\paulo\\AppData\\Local\\Arduino15\\libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:m5stack_nanoc6:UploadSpeed=921600,CDCOnBoot=cdc,CPUFreq=160,FlashFreq=80,FlashMode=qio,FlashSize=4M,PartitionScheme=huge_app,DebugLevel=none,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=zczr",
+  "hardwareFolders": "C:\\Users\\paulo\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.12,C:\\Users\\paulo\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.12",
+  "otherLibrariesFolders": "c:\\Users\\paulo\\OneDrive\\Documentos\\Arduino\\libraries",
+  "sketchLocation": "C:\\PC\\ESP32\\M5NanoC6\\M5NanoC6_wifi"
+}
