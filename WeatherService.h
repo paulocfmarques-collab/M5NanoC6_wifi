@@ -173,7 +173,7 @@ class WeatherService
                 servico->falhou = !ok;
                 portEXIT_CRITICAL(&servico->trava);
                 ultimaTentativa = millis();
-                intervalo = ok ? 600000UL : 120000UL;
+                intervalo = ok ? 300000UL : 60000UL;
                 tentou = true;
             }
             vTaskDelay(pdMS_TO_TICKS(1000));

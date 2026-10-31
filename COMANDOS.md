@@ -37,6 +37,24 @@ O padrão de coleta deste projeto é **80**, não 9120. Uma porta já salva
 Consulte [PROMETHEUS.md](PROMETHEUS.md) para
 ativação, nomes das métricas e recursos ainda indisponíveis.
 
+## Reconexão Wi-Fi
+
+Se houver ao menos uma rede cadastrada, o firmware tenta conectar no boot.
+Em caso de falha, ou ao detectar queda da conexão, abre o portal e aguarda
+**10 minutos** para uma nova rodada de busca/conexão. Após cada rodada sem
+sucesso, conta mais 10 minutos; mesmo no portal AP, continua tentando.
+Sem redes salvas, mantém o portal e não agenda buscas. Conectado, não faz
+tentativas periódicas nem derruba a rede. A reconexão automática do core está
+desativada para não tentar fora desse intervalo.
+
+O LCD mostra `WiFi tenta em mm:ss` na última linha durante a espera. Na
+tentativa, mostra busca, SSID e tempo de conexão; no sucesso, mostra a rede/IP
+por 3 segundos e volta ao conteúdo normal. Se a tela estiver desligada,
+permanece apagada. A busca e cada tentativa ainda são bloqueantes, como na
+implementação anterior, podendo atrasar botões e controles; o LCD é atualizado
+durante as tentativas. A rodada interrompe temporariamente o portal AP, que
+retorna se nenhuma rede conectar. Redes visíveis continuam priorizadas por RSSI.
+
 ## Canais de comandos
 
 Envie os comandos por **UDP** (IP do dispositivo, porta **4210**) ou pela
@@ -180,7 +198,7 @@ O LCD possui duas telas. Ao ligar/religar, abre sempre a tela inicial.
 | --- | --- | --- |
 | 1 | Ícone de calendário, data e hora local | Ícone de rede e estado Wi-Fi/AP |
 | 2 | Ícones de máxima/mínima e valores em °C | IP da estação ou portal AP |
-| 3 | Temperatura atual em °C e `Umid:80%` | Nome da rede (SSID) |
+| 3 | Temperatura atual em °C e ícone de gota e umidade em % | Nome da rede (SSID) |
 | 4 | Ícone e descrição completa do clima | RSSI em dBm e canal Wi-Fi |
 
 Os ícones são caracteres personalizados do HD44780, sem biblioteca adicional.

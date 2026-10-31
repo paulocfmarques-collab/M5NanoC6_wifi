@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-24
+
+- Rótulo `Umid:` substituído por ícone de gota no LCD e na prévia web.
+- Com redes cadastradas, tentativa inicial no boot e novas rodadas a cada
+  10 minutos após falha/desconexão, inclusive durante o portal AP. Sem redes,
+  mantém o portal sem repetir buscas. Wi-Fi já conectado não é interrompido.
+- Reconexão automática do core desativada para respeitar o agendamento.
+- LCD informa contagem regressiva, busca, SSID em tentativa e sucesso; respeita
+  tela desligada. Portal volta após falha e sai ao estabelecer conexão.
+- Testes locais aprovados para agendamento/intervalo, ausência de redes, sucesso,
+  wrap do relógio e avisos LCD. Compilação e teste de Wi-Fi real pelo usuário.
+
 ## 2026-10-21
 
 - LCD com duas telas e ícones HD44780: início com data/hora, máxima/mínima,

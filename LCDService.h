@@ -22,6 +22,9 @@ class LCDService
     uint8_t tela = 1, iconeClima = 0;
     unsigned long interacaoEm = 0, rolagemEm = 0;
     String textoRolagem;
+    String mensagemRede, detalheRede;
+    bool destaqueRede=false;
+    unsigned long avisoRedeEm=0, avisoRedeDuracao=0;
 
     static String icone(uint8_t codigo) { String s; s += char(codigo); return s; }
     bool desenharIcone(uint8_t slot, const uint8_t* pixels) {
@@ -30,16 +33,17 @@ class LCDService
         return true;
     }
     bool carregarIcones() {
-        const uint8_t pixels[7][8]={
+        const uint8_t pixels[8][8]={
             {10,31,17,31,17,21,17,31}, // calendario
             {4,14,21,4,4,4,0,0},      // maxima
             {4,4,4,21,14,4,0,0},      // minima
             {4,10,10,14,14,31,31,14}, // termometro
             {0,14,17,4,10,0,4,0},     // rede
             {4,21,14,31,14,21,4,0},   // sol
-            {6,9,9,6,0,0,0,0}        // grau
+            {6,9,9,6,0,0,0,0},       // grau
+            {4,4,10,10,17,17,17,14}  // gota de umidade
         };
-        for(uint8_t i=0;i<7;++i)if(!desenharIcone(i+1,pixels[i]))return false;
+        for(uint8_t i=0;i<8;++i)if(!desenharIcone((i+1)&7,pixels[i]))return false;
         return true;
     }
     void atualizarIconeClima(int codigo) {
@@ -106,7 +110,7 @@ class LCDService
         for (size_t i = 0; i < texto.length() && i < 20; ++i)
         {
             uint8_t c = texto[i];
-            nova[i] = ((c >= 1 && c <= 7) || (c >= 32 && c <= 126)) ? c : '?';
+            nova[i] = ((c >= 1 && c <= 8) || (c >= 32 && c <= 126)) ? c : '?';
         }
         if (!ativo || memcmp(nova, linhas[numero], 20) == 0)
             return;
@@ -130,6 +134,13 @@ class LCDService
     }
 
     uint8_t obterTela() const { return tela; }
+    void informarRede(const String& mensagem,const String& detalhe="",bool destaque=false,
+                      unsigned long duracao=0) {
+        bool mudou=mensagem!=mensagemRede||detalhe!=detalheRede||destaque!=destaqueRede;
+        mensagemRede=mensagem;detalheRede=detalhe;destaqueRede=destaque;
+        avisoRedeEm=millis();avisoRedeDuracao=duracao;
+        if(mudou){ultimaAtualizacao=millis()-1000UL;atualizar();}
+    }
     void registrarInteracao() { interacaoEm=millis(); }
     bool alternarTela() {
         if(!ativo||!ligado)return false;
@@ -171,12 +182,12 @@ class LCDService
     String obterLinha(uint8_t numero) const
     {
         if(numero>=4)return String();
-        const char* simbolos[]={"", "▦", "↑", "↓", "♨", "≋", "☀", "°"};
+        const char* simbolos[]={"", "▦", "↑", "↓", "♨", "≋", "☀", "°", "💧"};
         String texto;
         for(uint8_t i=0;i<20&&linhas[numero][i];++i) {
             uint8_t c=linhas[numero][i];
             if(c==6)texto+=iconeClima==0?"☀":(iconeClima==1?"☁":"☂");
-            else if(c>=1&&c<=7)texto+=simbolos[c];
+            else if(c>=1&&c<=8)texto+=simbolos[c];
             else texto+=char(c);
         }
         return texto;
@@ -251,6 +262,10 @@ class LCDService
 
     void atualizar()
     {
+        if(avisoRedeDuracao&&millis()-avisoRedeEm>=avisoRedeDuracao) {
+            mensagemRede="";detalheRede="";destaqueRede=false;avisoRedeDuracao=0;
+            ultimaAtualizacao=millis()-1000UL;
+        }
         if(ativo&&ligado&&tela==2&&millis()-interacaoEm>=15000UL) {
             tela=1;textoRolagem="";ultimaAtualizacao=millis()-1000UL;
         }
@@ -259,6 +274,12 @@ class LCDService
         ultimaAtualizacao = millis();
         bool conectado = WiFi.status() == WL_CONNECTED;
         bool portal = WiFi.getMode() == WIFI_AP;
+        if(destaqueRede&&mensagemRede.length()) {
+            linha(0,icone(5)+" Conexao Wi-Fi");
+            linha(1,mensagemRede);linha(2,rolar(detalheRede,20));
+            linha(3,conectado?"IP: "+WiFi.localIP().toString():String("Aguarde..."));
+            return;
+        }
         if(tela==1) {
             auto estado=clima.obterEstado();
             atualizarIconeClima(estado.disponivel?estado.codigo:-1);
@@ -268,16 +289,17 @@ class LCDService
             bool anterior=estado.disponivel&&(estado.falhou||!conectado);
             String umidade=estado.disponivel&&isfinite(estado.umidade)&&estado.umidade>=0&&estado.umidade<=100
                               ?String(estado.umidade,0):String("--");
-            linha(2,icone(4)+" "+temperatura(estado.temperatura,estado.disponivel)+icone(7)+"C Umid:"+umidade+"%"+
+            // Codigo 8 tambem aponta ao slot CGRAM 0, evitando NUL nas strings.
+            linha(2,icone(4)+" "+temperatura(estado.temperatura,estado.disponivel)+icone(7)+"C "+icone(8)+" "+umidade+"%"+
                     (anterior?"*":""));
             String descricao=estado.disponivel?String(WeatherService::descricaoCompleta(estado.codigo)):clima.getLinha();
-            linha(3,icone(6)+" "+rolar(descricao,18));
+            linha(3,mensagemRede.length()?mensagemRede:icone(6)+" "+rolar(descricao,18));
         } else {
             linha(0,icone(5)+(conectado?" Wi-Fi conectado":(portal?" Portal Wi-Fi AP":" Sem conexao")));
             linha(1,"IP: "+(conectado?WiFi.localIP().toString():(portal?WiFi.softAPIP().toString():String("--"))));
             String rede=conectado?WiFi.SSID():(portal?WiFi.softAPSSID():String("--"));
             linha(2,rolar("Rede: "+rede,20));
-            linha(3,conectado?"RSSI:"+String(WiFi.RSSI())+"dBm Ch:"+String(WiFi.channel()):String("RSSI:--  Canal:--"));
+            linha(3,mensagemRede.length()?mensagemRede:(conectado?"RSSI:"+String(WiFi.RSSI())+"dBm Ch:"+String(WiFi.channel()):String("RSSI:--  Canal:--")));
         }
     }
 };

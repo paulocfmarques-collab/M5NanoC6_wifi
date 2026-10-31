@@ -17,6 +17,7 @@
 #include "MetricsPage.h"
 #include "HomeAssistantService.h"
 #include "HomeAssistantPage.h"
+#include "WiFiRetryPolicy.h"
 
 class DeviceNetwork
 {
@@ -30,6 +31,7 @@ class DeviceNetwork
     WiFiUDP udp;
     Preferences prefs;
     bool modoAP;
+    WiFiRetryPolicy tentativasWiFi;
     static const int MAX_REDES = 5;
     bool rotasConfiguradas = false;
     bool sinaisMedidos = false;
@@ -81,6 +83,7 @@ class DeviceNetwork
         Serial.printf("[WIFI] Conectando a %s...\n", ssid.c_str());
         for (int i = 0; i < 25 && WiFi.status() != WL_CONNECTED; i++)
         {
+            lcd.informarRede("Conectando "+String(i/2)+"/13s",ssid,true);
             hardware.setLedColor(255, 255, 0, 20);
             delay(150);
             hardware.setLedColor(0, 0, 0, 0);
@@ -603,6 +606,7 @@ class DeviceNetwork
     bool conectar()
     {
         WiFi.persistent(false); // Evita desgaste desnecessário da Flash
+        WiFi.setAutoReconnect(false); // Tentativas controladas a cada 10 minutos.
         WiFi.disconnect(true);
         delay(100);
 
@@ -625,6 +629,7 @@ class DeviceNetwork
         }
         prefs.end();
 
+        tentativasWiFi.configure(totalRedes>0);
         if (totalRedes == 0)
         {
             Serial.println(F("[WIFI] Nenhuma rede salva encontrada. Iniciando portal..."));
@@ -653,6 +658,7 @@ class DeviceNetwork
 
         WiFi.mode(WIFI_STA);
         Serial.println(F("[WIFI] Escaneando espectro de redes locais..."));
+        lcd.informarRede("Buscando redes...","Redes cadastradas",true);
         int n = WiFi.scanNetworks();
 
         // Estrutura para parear as redes salvas encontradas com seus respectivos RSSIs
@@ -727,6 +733,7 @@ class DeviceNetwork
                 prefs.end();
 
                 modoAP = false;
+                tentativasWiFi.connected();
                 WiFi.scanDelete();
 
                 // Inicializa os serviços de background do dispositivo
@@ -735,6 +742,7 @@ class DeviceNetwork
                 iniciarServidorMetricas();
                 iniciarUDP();
                 ntp.begin(obterFuso(), obterDst());
+                lcd.informarRede("WiFi conectado",ssidAlvo,true,3000);
                 return;
             }
             Serial.printf(
@@ -748,32 +756,31 @@ class DeviceNetwork
         iniciarPortal();
     }
 
-    // NOVA FUNÇÃO: Monitor não-bloqueante para colocar no loop principal
+    // Aguarda sem bloquear; uma rodada de busca/conexao ocorre a cada 10 minutos.
     void monitorarConexao()
     {
-        static unsigned long ultimaChecagem = 0;
-        unsigned long agora = millis();
-
-        // Se estiver em modo AP, não precisa monitorar queda de estação
-        if (modoAP)
+        static unsigned ultimaContagem=UINT32_MAX;
+        if(WiFi.status()==WL_CONNECTED&&!modoAP) {
+            tentativasWiFi.connected();
+            ultimaContagem=UINT32_MAX;
             return;
-
-        // Verifica a saúde da conexão a cada 10 segundos de forma assíncrona
-        if (agora - ultimaChecagem >= 10000)
-        {
-            ultimaChecagem = agora;
-
-            if (WiFi.status() != WL_CONNECTED)
-            {
-                udp.stop();
-                metrics.setUdpListener(false);
-                Serial.println(
-                    F("[WIFI] Alerta: Conexao perdida! Iniciando recuperacao circular..."));
-                // Avisa visualmente piscando o LED em amarelo antes de reiniciar a busca
-                hardware.piscarSincrono(2, 150, 255, 120, 0);
-                executarVarreduraCircular();
-            }
         }
+        if(!modoAP) {
+            Serial.println(F("[WIFI] Conexao perdida. Nova tentativa em 10 minutos."));
+            iniciarPortal();
+        }
+        if(!tentativasWiFi.hasSaved())return;
+        if(tentativasWiFi.due(millis())) {
+            Serial.println(F("[WIFI] Intervalo de 10 minutos: tentando redes cadastradas."));
+            executarVarreduraCircular();
+            return;
+        }
+        unsigned segundos=(tentativasWiFi.remaining(millis())+999UL)/1000UL;
+        if(segundos==ultimaContagem)return;
+        ultimaContagem=segundos;
+        char mensagem[21];
+        snprintf(mensagem,sizeof(mensagem),"WiFi tenta em %02u:%02u",segundos/60,segundos%60);
+        lcd.informarRede(mensagem);
     }
 
     void iniciarPortal()
@@ -802,6 +809,8 @@ class DeviceNetwork
         server.begin();
         iniciarServidorMetricas();
         Serial.println(F("[PORTAL] Servidor Web inicializado."));
+        tentativasWiFi.schedule(millis());
+        lcd.informarRede(tentativasWiFi.hasSaved()?"WiFi tenta em 10:00":"Cadastre uma rede");
     }
 
     void iniciarUDP()
