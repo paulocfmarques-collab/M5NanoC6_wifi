@@ -1,512 +1,429 @@
-# M5NanoC6 Wi-Fi Firmware · Premium Technical README
+<div align="center">
 
-![Platform](https://img.shields.io/badge/platform-ESP32--C6-00979D?style=for-the-badge&logo=espressif)
-![Language](https://img.shields.io/badge/language-C%2B%2B-00599C?style=for-the-badge&logo=cplusplus)
-![Framework](https://img.shields.io/badge/framework-Arduino-00979D?style=for-the-badge&logo=arduino)
-![Connectivity](https://img.shields.io/badge/connectivity-Wi--Fi%20%7C%20UDP%20%7C%20BLE-6f42c1?style=for-the-badge)
-![Observability](https://img.shields.io/badge/observability-Prometheus-ff69b4?style=for-the-badge)
-![Integration](https://img.shields.io/badge/integration-Home%20Assistant-41BDF5?style=for-the-badge)
-![Updates](https://img.shields.io/badge/updates-OTA-orange?style=for-the-badge)
+# M5NanoC6
 
-Modular firmware for **M5NanoC6 (ESP32-C6)** focused on operational reliability, observability, and smart-home/IoT integration.
+### Clima, automação e observabilidade em um ESP32-C6.
 
-- Multi-network Wi-Fi provisioning with RSSI-based priority
-- Complete local web dashboard + API
-- OTA updates via HTTP and ArduinoOTA
-- Prometheus metrics + Home Assistant integration (MQTT Discovery)
-- Serial and UDP command channels
-- 20x4 I²C LCD, RGB LED, IR TX, NTP, and weather monitoring
+Um firmware com LCD 20×4, painel web, atualização por Wi-Fi e integração com sua casa conectada.
 
----
+![ESP32-C6](https://img.shields.io/badge/ESP32--C6-M5NanoC6-E7352C?style=for-the-badge&logo=espressif&logoColor=white)
+![Arduino](https://img.shields.io/badge/Arduino-C%2B%2B-00878F?style=for-the-badge&logo=arduino&logoColor=white)
+![LCD](https://img.shields.io/badge/LCD-20%C3%974_I%C2%B2C-334155?style=for-the-badge)
+![OTA](https://img.shields.io/badge/OTA-Web_%2B_ArduinoOTA-F59E0B?style=for-the-badge)
+![Home Assistant](https://img.shields.io/badge/Home_Assistant-MQTT_Discovery-18BCF2?style=for-the-badge&logo=homeassistant&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
 
-## 📚 Table of Contents
+**[Começar](#comecar) · [Hardware](#hardware) · [Fluxos](#fluxos) · [Comandos](#comandos) · [Documentação](#documentacao)**
 
-1. [Overview](#-overview)
-2. [Architecture](#-architecture)
-3. [Boot and execution cycle](#-boot-and-execution-cycle)
-4. [Complete repository inventory](#-complete-repository-inventory)
-5. [Networking and connectivity](#-networking-and-connectivity)
-6. [Dashboard and HTTP API](#-dashboard-and-http-api)
-7. [Commands (Serial/UDP)](#-commands-serialudp)
-8. [OTA](#-ota)
-9. [Prometheus](#-prometheus)
-10. [Home Assistant / MQTT](#-home-assistant--mqtt)
-11. [Hardware, pins, and peripherals](#-hardware-pins-and-peripherals)
-12. [Build and flashing](#-build-and-flashing)
-13. [Partitioning](#-partitioning)
-14. [Extra Mermaid flows](#-extra-mermaid-flows)
-15. [Additional documentation in the repository](#-additional-documentation-in-the-repository)
+</div>
 
 ---
 
-## 🔭 Overview
+> **Uma placa, várias interfaces.** Consulte o clima no LCD, controle pela web ou por UDP/Serial, acompanhe as métricas no Prometheus e encontre o dispositivo no Home Assistant por MQTT Discovery.
 
-- **Repository:** `paulocfmarques-collab/M5NanoC6_wifi`
-- **URL:** https://github.com/paulocfmarques-collab/M5NanoC6_wifi
-- **Default branch:** `main`
-- **Primary language:** C++ (Arduino core for ESP32)
-- **Entry point:** `M5NanoC6_wifi.ino`
+<a id="visao-geral"></a>
+## ✨ O que o projeto entrega
 
-### Main global services instantiated
+| Experiência | Recursos |
+| :--- | :--- |
+| **Clima à vista** | Data/hora, temperatura atual, máxima/mínima, umidade e condição do tempo de Porto Alegre, com ícones e rolagem no LCD. |
+| **Rede resiliente** | Até cinco redes salvas, prioridade por RSSI, portal de configuração e novas tentativas a cada 10 minutos quando desconectado. |
+| **Controle local** | Painel web, API JSON, comandos UDP/Serial, botão físico, LED RGB e pulso infravermelho. |
+| **Casa conectada** | 12 entidades por MQTT Discovery: controles, botões de ação e sensores. |
+| **Observabilidade** | Endpoint Prometheus com dados de sistema, Wi-Fi, memória, clima, GPIO, HTTP, UDP e MQTT. |
+| **Atualização pela rede** | Upload web com barra de progresso e ArduinoOTA com descoberta mDNS na IDE. |
 
-- `HardwareController hardware;`
-- `DeviceNetwork network;`
-- `NTPService ntp;`
-- `LCDService lcd;`
-- `WeatherService clima;`
-- `MetricsService metrics;`
-- `HomeAssistantService homeassistant;`
+**Estado atual:** Bluetooth desativado; OTA web e ArduinoOTA sem senha; configurações persistidas em Preferences/NVS. O clima é externo, obtido do Open-Meteo — não de um sensor ambiental instalado na placa.
 
----
+<a id="comecar"></a>
+## 🚀 Comece aqui
 
-## 🧠 Architecture
+### 1. Prepare o ambiente
+
+- **Placa:** M5Stack NanoC6, baseada no ESP32-C6, com flash de 4 MiB.
+- **Ferramentas:** Arduino IDE ou Arduino CLI com o core **Arduino ESP32 3.3.12**, usado no projeto.
+- **Bibliotecas:** ArduinoJson **7.4.3**, PubSubClient **2.8** e Adafruit NeoPixel.
+- **Incluídas no core:** Wire, WiFi, WebServer, Preferences, Update, ArduinoOTA, HTTPClient e NetworkClientSecure.
+- **LCD:** 20×4 com backpack PCF8574T. A placa também funciona sem o display.
+
+### 2. Compile e faça a primeira gravação por USB
+
+Abra [`M5NanoC6_wifi.ino`](M5NanoC6_wifi.ino) e mantenha [`partitions.csv`](partitions.csv) na mesma pasta do sketch. A primeira instalação da tabela OTA exige gravação por USB.
+
+**Pela CLI**, execute na pasta que contém o `.ino`:
+
+```bat
+arduino-cli compile --fqbn esp32:esp32:m5stack_nanoc6:PartitionScheme=default --build-property "upload.maximum_size=1966080" --build-path "../build" .
+arduino-cli upload --fqbn esp32:esp32:m5stack_nanoc6:PartitionScheme=default --port COM5 --input-dir "../build" .
+```
+
+Substitua `COM5` pela porta da placa. Os exemplos pressupõem core e bibliotecas já instalados.
+
+<details>
+<summary><strong>Atalhos do workspace Windows e uso da Arduino IDE</strong></summary>
+
+No workspace que contém `compilar.cmd` e `Makefile`, execute a partir da pasta desses arquivos:
+
+```bat
+compilar.cmd
+compilar.cmd size
+```
+
+Com GNU Make instalado:
+
+```bat
+make
+make size
+make JOBS=4
+```
+
+O script mantém os objetos para compilação incremental e aplica o limite correto da partição. Não compile simultaneamente no mesmo diretório de saída.
+
+Na IDE, selecione **M5Stack NanoC6**. O CSV do sketch define as duas partições OTA; a opção de menu pode informar um limite diferente. O guia [OTA](OTA.md) explica a seleção da partição, inclusive o uso de Huge APP quando necessário para compilar na IDE, e a conferência do tamanho real.
+
+</details>
+
+> [!IMPORTANT]
+> Cada aplicação OTA tem **1.966.080 bytes (1,875 MiB)**. Compare o binário com esse limite, não com os 4 MiB totais da flash. Não use a imagem `merged`, o bootloader ou a tabela de partições como arquivo de aplicação OTA.
+
+### 3. Cadastre sua rede
+
+Sem conexão, a placa abre a rede **`M5NanoC6_CONFIG`**. Conecte-se a ela e abra o IP do portal mostrado no LCD; acesse `/config` para salvar até cinco redes. O firmware reinicia após salvar.
+
+Conectado ao Wi-Fi, abra **`http://IP_DO_ESP32/info`**. O IP também está disponível no LCD, na Serial e pelo comando `IP`.
+
+### 4. Ative as integrações desejadas
+
+| Quero… | Onde configurar |
+| :--- | :--- |
+| Usar o Home Assistant | `/homeassistant`: informe o broker MQTT, credenciais opcionais e ative a integração. |
+| Coletar métricas | `/prometheus`: configure a coleta e aplique o YAML gerado ao servidor Prometheus. |
+| Atualizar o firmware pelo navegador | `/ota`: envie `M5NanoC6_wifi.ino.bin` e acompanhe o progresso. |
+| Atualizar pela Arduino IDE | Procure a porta de rede **M5NanoC6**, depois que esta versão estiver instalada. |
+
+<a id="hardware"></a>
+## 🔌 Hardware e ligação
+
+| Componente | Sinal | GPIO / conector |
+| :--- | :--- | :--- |
+| LCD PCF8574T | SDA | **GPIO2 · G2** |
+| LCD PCF8574T | SCL | **GPIO1 · G1** |
+| Botão integrado | Entrada ativa em nível baixo | GPIO9 |
+| LED RGB | Dados NeoPixel | GPIO20 |
+| LED RGB | Habilitação | GPIO19 |
+| LED azul | Saída digital | GPIO7 |
+| Infravermelho | Transmissão de pulso | GPIO3 |
+
+O driver LCD é local, usa apenas Wire e detecta um único PCF8574 entre **0x20 e 0x27**. Para endereço fixo, ajuste `Config::LCD_ENDERECO` em [`Config.h`](Config.h).
+
+**Ligação elétrica:** use terra comum. Se o backpack estiver alimentado em 5 V com pull-ups para 5 V, use conversor bidirecional I²C de 3,3 V/5 V. Ajuste o potenciômetro de contraste se o backlight acender sem mostrar caracteres.
+
+<a id="lcd"></a>
+## 🖥️ Duas telas, um botão
+
+| Linha | Início · clima | Rede |
+| :---: | :--- | :--- |
+| **1** | Calendário, data e hora | Estado Wi-Fi ou portal AP |
+| **2** | Máxima e mínima com ícones | IP da estação ou do portal |
+| **3** | Temperatura atual e **💧 umidade** | Nome da rede |
+| **4** | Ícone e descrição do clima | RSSI e canal |
+
+Os ícones são desenhados na memória CGRAM do LCD. Nomes de rede e descrições longas usam rolagem; a prévia web representa os ícones por símbolos Unicode.
 
 ```mermaid
 flowchart LR
-    INO[M5NanoC6_wifi.ino]
-
-    INO --> NET[DeviceNetwork]
-    INO --> CMD[CommandHandler]
-    INO --> HW[HardwareController]
-    INO --> NTP[NTPService]
-    INO --> LCD[LCDService]
-    INO --> MET[MetricsService]
-    INO --> HA[HomeAssistantService]
-    INO --> WEA[WeatherService]
-
-    NET --> OTA[OTAService]
-    NET --> WEB[WebDashboard]
-    NET --> MPAGE[MetricsPage]
-    NET --> HAPAGE[HomeAssistantPage]
-    NET --> UDP[WiFiUDP :4210]
-    NET --> HTTP80[WebServer :80]
-    NET --> HTTPM[Metrics Server :configurable port]
-
-    HA --> MQTT[(MQTT Broker)]
-    MET --> PROM[/metrics Prometheus format/]
+    INICIO["Tela inicial: clima"]
+    REDE["Tela de rede"]
+    OFF["LCD e backlight desligados"]
+    INICIO -->|"Toque curto"| REDE
+    REDE -->|"Toque curto"| INICIO
+    REDE -->|"15 s sem interação"| INICIO
+    INICIO -->|"Pressionar por 3 s"| OFF
+    REDE -->|"Pressionar por 3 s"| OFF
+    OFF -->|"Toque: religa sem alternar"| INICIO
+    classDef active fill:#123047,stroke:#38bdf8,color:#fff
+    classDef muted fill:#27272a,stroke:#a1a1aa,color:#fff
+    class INICIO,REDE active
+    class OFF muted
 ```
 
-### Functional layers
+O toque curto é aplicado ao soltar o botão; segurar não repete a ação. O debounce é de **35 ms**. Durante a espera de reconexão, a última linha mostra a contagem regressiva; durante a tentativa, o LCD destaca busca, SSID e conexão concluída. A tela desligada permanece apagada.
+
+| Atualização | Intervalo |
+| :--- | :--- |
+| Conteúdo do LCD | 1 segundo no loop normal |
+| Consulta de clima | 10 minutos |
+| Nova consulta após falha | 2 minutos |
+| Validade máxima do clima em cache | 30 minutos |
+| Retorno da tela de rede | 15 segundos sem interação |
+
+`*` junto da temperatura indica dados anteriores após falha ou queda de Wi-Fi. Máxima e mínima correspondem ao dia de Porto Alegre; valores indisponíveis aparecem como `--`.
+
+<a id="fluxos"></a>
+## 🧭 Arquitetura e fluxos
+
+### Como os serviços se conectam
+
+```mermaid
+flowchart TB
+    WEB["Navegador: painel e configuração"] --> HTTP["DeviceNetwork / HTTP"]
+    SERIAL["Serial 115200"] --> CMD["CommandHandler"]
+    UDP["UDP 4210"] --> CMD
+    BROKER["Broker MQTT"] <--> HA["HomeAssistantService"]
+    HA -->|"Controles permitidos"| CMD
+    HTTP --> LCD["LCDService / LCDButton"]
+    HTTP --> HW["HardwareController"]
+    CMD --> LCD
+    CMD --> HW
+    CMD --> NTP["NTPService"]
+    HTTP --> OTA["OTAService"]
+    PROM["Prometheus"] -->|"Coleta HTTP /metrics"| MET["MetricsService"]
+    CLIMA["WeatherService / Open-Meteo"] --> LCD
+    CLIMA --> HA
+    NVS[("Preferences / NVS")] --- HTTP
+    NVS --- HA
+    NVS --- MET
+    classDef service fill:#123047,stroke:#38bdf8,color:#fff
+    class HTTP,CMD,LCD,HW,NTP,OTA,MET,CLIMA,HA service
+```
+
+### Boot, falha de rede e reconexão
 
 ```mermaid
 flowchart TD
-    A[Presentation] --> B[Application Logic]
-    B --> C[Platform Services]
-    C --> D[Hardware/RTOS]
-
-    A:::a --> A1[Web Dashboard]
-    A:::a --> A2[HTTP API]
-
-    B:::b --> B1[CommandHandler]
-    B:::b --> B2[HomeAssistantService]
-    B:::b --> B3[MetricsService]
-
-    C:::c --> C1[WiFi / UDP / OTA / NTP]
-    C:::c --> C2[Weather / Preferences NVS]
-
-    D:::d --> D1[GPIO / NeoPixel / IR]
-    D:::d --> D2[LCD I2C]
-    D:::d --> D3[ESP32-C6]
-
-    classDef a fill:#1f2937,stroke:#60a5fa,color:#fff;
-    classDef b fill:#0f3d2e,stroke:#34d399,color:#fff;
-    classDef c fill:#3f2a00,stroke:#f59e0b,color:#fff;
-    classDef d fill:#3a1a3a,stroke:#f472b6,color:#fff;
+    BOOT["Inicializar hardware, métricas, HA e LCD"] --> SAVED{"Há redes cadastradas?"}
+    SAVED -->|"Não"| CONFIG["Portal: cadastrar redes"]
+    CONFIG -->|"Salvar e reiniciar"| BOOT
+    SAVED -->|"Sim"| SCAN["Buscar redes salvas visíveis"]
+    SCAN --> TRY["Tentar por ordem de RSSI"]
+    TRY --> OK{"Conectou?"}
+    OK -->|"Sim"| ONLINE["Operar em Wi-Fi: web, UDP, NTP e integrações"]
+    OK -->|"Não"| PORTAL["Abrir portal AP e mostrar espera no LCD"]
+    ONLINE -->|"Conexão caiu"| PORTAL
+    PORTAL --> WAIT["Aguardar 10 minutos"]
+    WAIT --> SCAN
+    classDef wait fill:#3f2c12,stroke:#fbbf24,color:#fff
+    class PORTAL,WAIT wait
 ```
 
----
+Conectado, o firmware mantém a rede e não faz buscas periódicas. A reconexão automática do core está desativada para respeitar o agendamento. Sem redes cadastradas, o portal permanece disponível sem agendar tentativas.
 
-## 🚀 Boot and execution cycle
+**Limite operacional:** o agendamento da espera não bloqueia o loop, mas a busca e as tentativas de conexão ainda são bloqueantes. Elas podem atrasar botões e atendimento web; o portal AP é temporariamente interrompido durante a rodada e retorna em caso de falha.
 
-### Initialization sequence
+<a id="interfaces"></a>
+## 🌐 Interfaces e portas
+
+| Interface | Endereço / porta | Uso |
+| :--- | :--- | :--- |
+| Painel | HTTP **80** · `/info` | Diagnóstico e controles |
+| Redes Wi-Fi | HTTP **80** · `/config` | Cadastro das redes |
+| Home Assistant | HTTP **80** · `/homeassistant` | Configuração MQTT |
+| Prometheus | HTTP **80** · `/prometheus` | Configuração e YAML de coleta |
+| OTA web | HTTP **80** · `/ota` | Upload de aplicação |
+| API | HTTP **80** · `/api/status` | Estado do dispositivo |
+| Métricas | `/metrics` · **80 por padrão**, configurável | Coleta Prometheus |
+| Comandos UDP | **4210** | Requisição e resposta ao remetente |
+| Comandos Serial | **115200 baud** | Linhas LF ou CRLF |
+| ArduinoOTA | **3232** | Upload pela IDE |
+| Descoberta ArduinoOTA | mDNS · hostname **M5NanoC6** | Porta de rede na IDE |
+| MQTT | **1883 por padrão**, configurável | Conexão ao broker, sem TLS |
+
+> [!NOTE]
+> A porta configurada para Prometheus altera somente o servidor de `/metrics`. **Painel, API e OTA web continuam na porta 80.** Se a porta de métricas também for 80, os serviços compartilham o servidor HTTP.
+
+<details>
+<summary><strong>Rotas de configuração e ações</strong></summary>
+
+| Método | Rota | Função |
+| :--- | :--- | :--- |
+| GET | `/api/prometheus/config` | Lê preferências e YAML de coleta |
+| POST | `/api/prometheus/config` | Salva host, porta de métricas e intervalo |
+| GET | `/prometheus.yml` | Baixa a configuração de coleta |
+| GET | `/api/homeassistant/config` | Lê configuração pública e estado MQTT |
+| POST | `/api/homeassistant/config` | Salva broker, credenciais e ativação |
+| POST | `/salvar` | Salva redes Wi-Fi e reinicia |
+| POST | `/ntp_sync` | Solicita sincronização NTP |
+| POST | `/set_fuso` | Ajusta fuso e horário de verão |
+| POST | `/scan_wifi` | Mede sinais das redes salvas |
+| POST | `/lcd_on`, `/lcd_off` | Liga/desliga o LCD |
+| GET | `/led_on`, `/led_off`, `/ir_tx` | Controles de LED e pulso IR |
+| GET | `/reboot` | Reinicia o dispositivo |
+
+</details>
+
+<a id="comandos"></a>
+## ⌨️ Comandos de operação
+
+UDP e Serial aceitam comandos em maiúsculas ou minúsculas. A resposta retorna pelo canal de origem. Na Serial, use LF/CRLF e até **255 caracteres ASCII** por linha.
+
+| Grupo | Comandos |
+| :--- | :--- |
+| Descoberta e diagnóstico | `HELP`, `NAME`, `ALIVE`, `INFO`, `STATUS`, `VERSION`, `BUILD`, `REASON` |
+| Rede | `IP`, `MAC`, `RSSI`, `NET_INFO` |
+| Sistema | `TEMP`, `CPU`, `RAM`, `HEAP`, `FLASH`, `UPTIME` |
+| Relógio | `TIME`, `DATE`, `NTP_SYNC`, `NTP_STATUS`, `SET_FUSO:N`, `DST_ON`, `DST_OFF` |
+| LCD | `LCD_ON`, `LCD_OFF` |
+| LED e IR | `LED_ON`, `LED_OFF`, `LED_BLINK[:ms]`, `SET_RGB:R,G,B`, `SET_BREATH:R,G,B,MS`, `IR_TX` |
+| Home Assistant | `HA_STATUS`, `HA_DISCOVERY`, `HA_USER`, `HA_PASSWORD` |
+| Administração | `REBOOT`, `RESET_WIFI`, `RESET_COUNTERS` |
+
+`HELP` começa com `COMANDOS` e lista um comando por linha, facilitando o parser. `HA_DISCOVERY` agenda a republicação das entidades; acompanhe pelo `HA_STATUS`.
+
+**Credenciais:** `HA_PASSWORD` devolve a senha MQTT em texto pelo canal solicitado. A API web não devolve essa senha. `RESET_WIFI` apaga as redes; `RESET_COUNTERS` zera os contadores NVS de boot/watchdog. Detalhes em [COMANDOS.md](COMANDOS.md).
+
+<a id="integracoes"></a>
+## 🏠 Home Assistant e Prometheus
+
+### Home Assistant · MQTT Discovery
+
+Configure o **broker MQTT**, que pode estar em outra máquina, e ative a integração em `/homeassistant`. O endereço web do HA e sua porta 8123 não substituem o endereço/porta do broker.
+
+| Tipo | Entidades |
+| :--- | :--- |
+| 2 switches | Tela LCD e LED RGB |
+| 2 botões | Sincronizar NTP e emitir pulso IR |
+| 4 sensores de sistema | Temperatura CPU, heap livre, uptime e RSSI |
+| 4 sensores de clima | Temperatura, umidade, máxima e mínima de Porto Alegre |
+
+A identidade deriva da MAC: `m5nanoc6_<mac>`. Discovery usa o prefixo `homeassistant`; Last Will sinaliza indisponibilidade. Credenciais e intervalo ficam nas prefs. Comandos MQTT não são retidos e se limitam aos controles anunciados.
 
 ```mermaid
 sequenceDiagram
-    participant FW as Firmware
-    participant HW as HardwareController
-    participant MET as MetricsService
-    participant HA as HomeAssistantService
-    participant LCD as LCDService
-    participant NET as DeviceNetwork
-    participant WEA as WeatherService
-
-    FW->>HW: begin()
-    FW->>MET: begin()
-    FW->>HA: begin(callback CommandHandler)
-    FW->>LCD: begin()
-    FW->>NET: conectar()
-    NET-->>FW: Wi-Fi STA or AP portal
-    FW->>WEA: begin()
+    participant ESP as M5NanoC6
+    participant MQTT as Broker MQTT
+    participant HA as Home Assistant
+    ESP->>MQTT: Conectar com Last Will offline
+    ESP->>MQTT: Publicar disponibilidade online
+    ESP->>MQTT: Publicar 12 configurações retidas
+    MQTT-->>HA: Entregar MQTT Discovery
+    ESP->>MQTT: Publicar estado periódico
+    MQTT-->>HA: Atualizar sensores e controles
+    HA->>MQTT: Comando LCD, LED, NTP ou IR
+    MQTT->>ESP: Entregar comando
+    ESP->>ESP: Executar controle permitido
+    ESP->>MQTT: Publicar novo estado
 ```
 
-### Main loop
+Guia: [HOME_ASSISTANT.md](HOME_ASSISTANT.md).
 
-```mermaid
-flowchart TD
-    L0[loop()] --> L1[network.processarWebServer]
-    L1 --> L2[processarSerial]
-    L2 --> L3[processarBotao]
-    L3 --> L4[metrics.update]
-    L4 --> L5[hardware.atualizarEfeitos]
-    L5 --> L6[network.monitorarConexao]
-    L6 --> L7[ntp.atualizar]
-    L7 --> L8[lcd.atualizar]
-    L8 --> L9[homeassistant.update]
-    L9 --> L10{UDP message received?}
-    L10 -- Yes --> L11[CommandHandler::executar]
-    L10 -- No --> L12[delay(1)]
-    L11 --> L12
-    L12 --> L0
-```
+### Prometheus · coleta direta
 
----
-
-## 🗂️ Complete repository inventory
-
-### Code and configuration (root)
-
-| File | Main purpose |
-|---|---|
-| `M5NanoC6_wifi.ino` | Orchestrates setup/loop and service integration |
-| `Config.h` | Pin constants, network/weather defaults, helpers, and config HTML |
-| `DeviceNetwork.h` | Wi-Fi/AP portal, web server, routes, UDP, RSSI scan/reconnect |
-| `CommandHandler.h` | Serial/UDP command parser and dispatcher |
-| `HardwareController.h` | GPIO/LED/IR control and effects |
-| `LCDService.h` | I²C 20x4 LCD lifecycle and rendering |
-| `LCDButton.h` | Button behavior (wake/next/off) |
-| `NTPService.h` | Time synchronization and NTP status |
-| `WeatherService.h` | Open-Meteo weather integration |
-| `OTAService.h` | HTTP OTA + ArduinoOTA |
-| `OTAUploadPage.h` | OTA upload form UI |
-| `WebDashboard.h` | Main dashboard HTML/JS |
-| `MetricsService.h` | Metric collection and exposition |
-| `MetricsPage.h` | Prometheus configuration/status page |
-| `HomeAssistantService.h` | MQTT Discovery/Home Assistant integration |
-| `HomeAssistantPage.h` | Home Assistant configuration UI |
-| `BluetoothService.h` | BLE UART-like service with queued sessions |
-| `partitions.csv` | ESP32-C6 partition table |
-
-### Additional documentation
-
-| File | Topic |
-|---|---|
-| `CHANGELOG.md` / `CHANGELOG.pdf` | Change history |
-| `COMANDOS.md` / `COMANDOS.pdf` | Command reference and usage |
-| `OTA.md` / `OTA.pdf` | OTA workflow and instructions |
-| `PROMETHEUS.md` / `PROMETHEUS.pdf` | Metrics exposition and setup |
-| `HOME_ASSISTANT.md` / `HOME_ASSISTANT.pdf` | MQTT/Home Assistant integration |
-
----
-
-## 🌐 Networking and connectivity
-
-### Wi-Fi strategy
-
-- Stores up to **5 networks** in Preferences (`m5wifi`)
-- Scans nearby APs and attempts connection by **strongest RSSI first**
-- Saves index of the last successful network
-- Falls back to **AP mode** (`M5NanoC6_CONFIG`) when no valid network is reachable
-
-```mermaid
-flowchart TD
-    A[Start connection] --> B[Load stored SSIDs]
-    B --> C{Any stored network?}
-    C -- No --> AP[Start AP portal]
-    C -- Yes --> D[scanNetworks]
-    D --> E[Filter visible stored SSIDs]
-    E --> F{Any match found?}
-    F -- No --> AP
-    F -- Yes --> G[Sort by RSSI desc]
-    G --> H[Try auth in order]
-    H --> I{Connected?}
-    I -- Yes --> J[Start Web + Metrics + UDP + NTP]
-    I -- No --> K{More networks?}
-    K -- Yes --> H
-    K -- No --> AP
-```
-
-### Connection loss recovery
-
-- Every ~10s, checks `WiFi.status()`
-- On disconnect:
-  - stops UDP listener
-  - updates UDP listener metric status
-  - signals visually
-  - restarts circular reconnection scan
-
----
-
-## 🖥️ Dashboard and HTTP API
-
-### Main routes identified
-
-#### UI
-- `GET /` (config portal in AP mode, dashboard in STA mode)
-- `GET /info`
-- `GET /config`
-- `GET /prometheus`
-- `GET /homeassistant`
-- `GET /ota`
-
-#### Status/configuration
-- `GET /api/status`
-- `GET /api/prometheus/config`
-- `POST /api/prometheus/config`
-- `GET /api/homeassistant/config`
-- `POST /api/homeassistant/config`
-- `GET /prometheus.yml`
-
-#### Actions
-- `POST /salvar` (save networks and reboot)
-- `POST /ntp_sync`
-- `POST /scan_wifi`
-- `POST /set_fuso`
-- `GET /reboot`
-- `GET /led_on`
-- `GET /led_off`
-- `GET /ir_tx`
-- `POST /lcd_on`
-- `POST /lcd_off`
-
-#### Metrics
-- `GET /metrics` (port 80 or dedicated configured port)
-
-### Web navigation map
-
-```mermaid
-flowchart LR
-    U[Browser User] --> ROOT[/]
-    ROOT --> INFO[/info]
-    ROOT --> CFG[/config]
-    INFO --> PROMUI[/prometheus]
-    INFO --> HAUI[/homeassistant]
-    INFO --> OTA[/ota]
-
-    INFO --> APISTATUS[/api/status]
-    PROMUI --> APIPROMGET[/api/prometheus/config GET]
-    PROMUI --> APIPROMPOST[/api/prometheus/config POST]
-    HAUI --> APIHAGET[/api/homeassistant/config GET]
-    HAUI --> APIHAPOST[/api/homeassistant/config POST]
-```
-
----
-
-## ⌨️ Commands (Serial/UDP)
-
-- Serial input: 115200 baud
-- UDP input: port **4210**
-- Commands are normalized to lowercase
-
-### Supported commands (CommandHandler)
-
-`help`, `info`, `status`, `version`, `build`, `reason`, `reboot`, `reset_counters`, `reset_wifi`, `alive`, `name`, `ha_user`, `ha_password`, `ha_status`, `ha_discovery`, `temp`, `cpu`, `ram`, `heap`, `flash`, `uptime`, `net_info`, `mac`, `rssi`, `ip`, `time`, `date`, `set_fuso:N`, `dst_on`, `dst_off`, `ntp_sync`, `ntp_status`, `led_on`, `led_off`, `led_blink[:ms]`, `set_rgb:R,G,B`, `set_breath:R,G,B,MS`, `lcd_on`, `lcd_off`, `ir_tx`.
-
-### Command flow
-
-```mermaid
-flowchart TD
-    A[Serial or UDP] --> B[trim + lowercase]
-    B --> C{Known command?}
-    C -- No --> D[Comando nao reconhecido]
-    C -- Yes --> E[Execute action]
-    E --> F{Serial channel?}
-    F -- Yes --> G[Serial.print]
-    F -- No --> H[network.responderUDP]
-```
-
----
-
-## 🔁 OTA
-
-### OTA capabilities
-
-- HTTP upload endpoint at `/ota`
-- ArduinoOTA on port **3232**, hostname `M5NanoC6`
-- No OTA password in current implementation
-- Validates `.ino.bin` payload (rejects bootloader/partitions/merged)
-- Checks OTA partition capacity before accepting upload
-
-### OTA state machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> ValidatingFile: Upload start
-    ValidatingFile --> Writing: bin accepted + OTA slot available
-    ValidatingFile --> Failed: invalid file / no OTA partition
-    Writing --> Completed: end + Update.end OK
-    Writing --> Failed: write/end error
-    Completed --> RebootPending
-    RebootPending --> Reboot
-    Failed --> Idle
-    Reboot --> [*]
-```
-
----
-
-## 📈 Prometheus
-
-Based on implementation + `PROMETHEUS.md`:
-
-- `/metrics` in Prometheus 0.0.4 exposition format
-- Metrics port configurable and independent from web UI (port 80)
-- Configuration persisted in `telemetry` namespace
-- `prometheus.yml` generated through dedicated endpoint
-- Covers network, system, heap, uptime, HTTP, UDP, NTP, weather, MQTT
-
-### Pull collection flow
+O Prometheus consulta o ESP32 por HTTP. Salvar as preferências gera o YAML, mas **não altera o servidor Prometheus automaticamente**. Aplique o job ao servidor e reserve um IP para a placa no DHCP.
 
 ```mermaid
 sequenceDiagram
-    participant P as Prometheus Server
-    participant E as ESP32 (MetricsService)
-
-    P->>E: GET /metrics
-    E-->>P: text/plain; version=0.0.4
-    P->>P: Store time series
-    P->>P: Rules/alerts/dashboards
+    participant US as Operador
+    participant ESP as M5NanoC6
+    participant PROM as Prometheus
+    US->>ESP: Configurar em /prometheus
+    ESP-->>US: Gerar prometheus.yml
+    US->>PROM: Aplicar configuração de coleta
+    loop A cada scrape_interval
+        PROM->>ESP: GET /metrics na porta configurada
+        ESP-->>PROM: Métricas no formato Prometheus 0.0.4
+    end
 ```
 
----
+| Área | Exemplos de métricas |
+| :--- | :--- |
+| Disponibilidade e sistema | `esp_status_online`, `esp_uptime_seconds`, `esp_boot_count` |
+| Rede e memória | `esp_wifi_rssi_dbm`, `esp_heap_free_bytes`, `esp_flash_usage_percent` |
+| UDP | `esp_udp_listener_up`, `esp_udp_packets_received_total`, `esp_udp_replies_sent_total`, `esp_udp_send_errors_total` |
+| MQTT | `mqtt_connected`, `mqtt_messages_sent`, `mqtt_messages_received`, `mqtt_publish_errors` |
+| Clima | `sensor_temperature_celsius`, `sensor_humidity_percent` |
+| HTTP | `application_requests_total`, `application_errors_total`, `application_response_time_ms` |
 
-## 🏠 Home Assistant / MQTT
+Use `up` do Prometheus para detectar um dispositivo inacessível. Métricas de energia, bateria, relés, pressão, qualidade do ar e ADC sem implementação não são inventadas. Catálogo e semântica: [PROMETHEUS.md](PROMETHEUS.md).
 
-Based on `HOME_ASSISTANT.md`:
+<a id="ota"></a>
+## 🔄 OTA: da primeira gravação às próximas
 
-- Integration via **MQTT Discovery** (prefix `homeassistant`)
-- Configured through `/homeassistant`
-- Persistence in NVS namespace `m5ha`
-- Discovery + availability + state topics
-- Dedicated MQTT commands for LCD/LED/NTP/IR
-
-### HA topology
-
-```mermaid
-flowchart LR
-    ESP[M5NanoC6] -->|MQTT publish state/discovery| BROKER[(MQTT Broker)]
-    HA[Home Assistant MQTT Integration] -->|subscribe| BROKER
-    HA --> ENT[Auto-discovered entities]
-    ENT --> UI[Home Assistant UI]
-    UI -->|commands| BROKER
-    BROKER -->|mqtt set topics| ESP
-```
-
----
-
-## 🔌 Hardware, pins, and peripherals
-
-### Main pin mapping (`Config.h`)
-
-- `GPIO3` → IR TX
-- `GPIO7` → Blue status LED
-- `GPIO9` → User button
-- `GPIO19` → NeoPixel bus enable
-- `GPIO20` → RGB LED data
-- `GPIO2` → LCD SDA
-- `GPIO1` → LCD SCL
-
-### Other defaults
-
-- UDP port: `4210`
-- Default timezone: `-3` (Brasília)
-- Default weather target: Porto Alegre (`lat -30.03283`, `lon -51.23019`)
-
-### Peripheral map
+**Primeira instalação ou migração da tabela:** USB, incluindo as partições. **Atualizações seguintes:** página web ou porta de rede ArduinoOTA.
 
 ```mermaid
 flowchart TD
-    MCU[ESP32-C6] --> IR[GPIO3 IR TX]
-    MCU --> LEDB[GPIO7 Blue LED]
-    MCU --> BTN[GPIO9 Button]
-    MCU --> RGBEN[GPIO19 RGB Enable]
-    MCU --> RGBDAT[GPIO20 RGB Data]
-    MCU --> I2CSDA[GPIO2 SDA]
-    MCU --> I2CSCL[GPIO1 SCL]
-    I2CSDA --> LCD[LCD 20x4 + PCF8574]
-    I2CSCL --> LCD
+    START["Atualizar firmware"] --> TABLE{"Tabela com dois slots OTA instalada?"}
+    TABLE -->|"Não"| USB["Gravar firmware e tabela por USB"]
+    TABLE -->|"Sim"| METHOD{"Escolher método"}
+    USB --> METHOD
+    METHOD -->|"Navegador"| WEB["Abrir /ota e enviar .ino.bin"]
+    METHOD -->|"Arduino IDE"| IDE["Selecionar porta de rede M5NanoC6"]
+    WEB --> CHECK["Gravar no slot inativo e validar a imagem"]
+    IDE --> CHECK
+    CHECK --> VALID{"Imagem válida?"}
+    VALID -->|"Não"| ERROR["Informar erro; não reiniciar automaticamente"]
+    VALID -->|"Sim"| REBOOT["Selecionar aplicação e reiniciar"]
+    classDef success fill:#12382a,stroke:#34d399,color:#fff
+    class REBOOT success
 ```
+
+Na página web, a barra mostra **envio → validação → reinício**. Upload concluído não significa imagem aprovada; aguarde a confirmação. Na IDE, use o progresso nativo do upload. Ambos os métodos compartilham o mecanismo de atualização: não os utilize simultaneamente.
+
+**Acesso local:** OTA está sem senha, conforme a configuração do projeto. Não há HTTPS nem rollback automático após falha de execução do novo firmware. Credenciais MQTT são independentes dessa configuração. Procedimentos e recuperação: [OTA.md](OTA.md).
+
+### Mapa da flash · 4 MiB
+
+| Região | Offset | Tamanho |
+| :--- | :--- | :--- |
+| NVS / Preferences | `0x9000` | `0x5000` · 20 KiB |
+| Dados OTA | `0xE000` | `0x2000` · 8 KiB |
+| Aplicação 0 | `0x10000` | `0x1E0000` · **1.966.080 bytes** |
+| Aplicação 1 | `0x1F0000` | `0x1E0000` · **1.966.080 bytes** |
+| SPIFFS | `0x3D0000` | `0x20000` · 128 KiB |
+| Coredump | `0x3F0000` | `0x10000` · 64 KiB |
+
+Fonte: [`partitions.csv`](partitions.csv). A tabela acima lista as partições; os endereços anteriores à NVS são reservados ao bootloader e à tabela. Cada firmware precisa caber em **um** slot.
+
+<a id="codigo"></a>
+## 🧩 Organização do código
+
+| Arquivos | Responsabilidade |
+| :--- | :--- |
+| [`M5NanoC6_wifi.ino`](M5NanoC6_wifi.ino) | Inicialização e execução dos serviços |
+| [`Config.h`](Config.h), [`HardwareController.h`](HardwareController.h) | Pinos, padrões e controle de LED/IR |
+| [`DeviceNetwork.h`](DeviceNetwork.h), [`WiFiRetryPolicy.h`](WiFiRetryPolicy.h) | Redes, portal, HTTP, UDP e agendamento de reconexão |
+| [`CommandHandler.h`](CommandHandler.h) | Comandos e respostas por canal |
+| [`LCDService.h`](LCDService.h), [`LCDButton.h`](LCDButton.h) | Driver, ícones, telas e interação do botão |
+| [`NTPService.h`](NTPService.h), [`WeatherService.h`](WeatherService.h) | Hora local e consultas meteorológicas |
+| [`OTAService.h`](OTAService.h), [`OTAUploadPage.h`](OTAUploadPage.h) | Atualização web e ArduinoOTA |
+| [`MetricsService.h`](MetricsService.h), [`MetricsPage.h`](MetricsPage.h) | Métricas e configuração da coleta |
+| [`HomeAssistantService.h`](HomeAssistantService.h), [`HomeAssistantPage.h`](HomeAssistantPage.h) | MQTT, Discovery e configuração |
+| [`WebDashboard.h`](WebDashboard.h) | Painel web e prévia do LCD |
+
+### Persistência
+
+| Namespace NVS | Conteúdo |
+| :--- | :--- |
+| `m5wifi` | Redes, último índice de conexão e ajustes de relógio |
+| `telemetry` | Configuração Prometheus e contadores persistentes |
+| `m5ha` | Configuração e credenciais MQTT |
+
+Estado ligado/desligado e página do LCD não são persistidos. Contadores HTTP, UDP e MQTT reiniciam com o firmware; boot/watchdog usam NVS conforme o catálogo de métricas.
+
+<a id="validacao"></a>
+## 🧪 Validação e limites
+
+O workspace de desenvolvimento inclui testes locais de métricas, MQTT Discovery, formulário web, OTA, LCD, botão e política de reconexão, com adaptadores simulados. Eles verificam lógica e formato; **não substituem compilação com o SDK nem testes na placa, no broker e na rede reais**.
+
+Os badges identificam a plataforma e as integrações do projeto. Confira o tamanho do firmware no binário recém-compilado.
+
+<a id="documentacao"></a>
+## 📚 Guias do projeto
+
+| Guia | Conteúdo |
+| :--- | :--- |
+| [Comandos](COMANDOS.md) | Sintaxe, exemplos, LCD, redes e operação |
+| [OTA](OTA.md) | USB inicial, upload web, ArduinoOTA e partições |
+| [Prometheus](PROMETHEUS.md) | Configuração, catálogo de métricas e diagnóstico |
+| [Home Assistant](HOME_ASSISTANT.md) | Broker, Discovery, entidades e credenciais |
+| [Changelog](CHANGELOG.md) | Evolução do firmware e das verificações |
 
 ---
 
-## 🛠️ Build and flashing
+<div align="center">
 
-### Prerequisites
+**M5NanoC6 · clima na tela, controle na rede, dados nas suas ferramentas.**
 
-- Arduino IDE or PlatformIO with ESP32-C6 support
-- Libraries used by the project:
-  - `ArduinoJson`
-  - `PubSubClient` (HA/MQTT integration)
-  - ESP32 core dependencies (`WiFi`, `WebServer`, `Update`, `ArduinoOTA`, etc.)
+[Voltar ao início](#m5nanoc6)
 
-### Suggested steps
-
-1. Open `M5NanoC6_wifi.ino`
-2. Select ESP32-C6 target board
-3. Compile
-4. Flash via USB (especially first deployment with OTA-capable partition layout)
-5. Access dashboard using assigned IP
-
----
-
-## 💾 Partitioning
-
-- Repository includes `partitions.csv`
-- OTA requires a valid second app slot
-- If OTA partition is unavailable, firmware instructs USB flashing first
-
-```mermaid
-flowchart LR
-    F[Flash] --> B[Bootloader]
-    F --> T[Partition Table]
-    F --> A0[App Slot A (running)]
-    F --> A1[App Slot B (next OTA)]
-    F --> NVS[NVS / Preferences]
-    F --> O[Other partitions]
-```
-
----
-
-## 🔬 Extra Mermaid flows
-
-### Metrics port change flow
-
-```mermaid
-sequenceDiagram
-    participant UI as Prometheus Page
-    participant API as /api/prometheus/config
-    participant NET as DeviceNetwork
-    participant MS as MetricsServer
-
-    UI->>API: POST host, port, interval
-    API->>NET: metrics.save(...)
-    NET->>NET: metricsPortPending = true
-    NET->>NET: wait ~1s in loop
-    NET->>MS: stop/begin(newPort)
-    NET-->>UI: GET config with active_port
-```
-
-### Connectivity state machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> Boot
-    Boot --> WifiScan
-    WifiScan --> StationConnected: valid credentials found
-    WifiScan --> APConfigMode: no network/no success
-    StationConnected --> Recovering: link lost
-    Recovering --> WifiScan
-    APConfigMode --> Rebooting: new config saved
-    Rebooting --> Boot
-```
-
----
-
-## 📎 Additional documentation in the repository
-
-For deeper operational details, see:
-
-- [`COMANDOS.md`](./COMANDOS.md)
-- [`OTA.md`](./OTA.md)
-- [`PROMETHEUS.md`](./PROMETHEUS.md)
-- [`HOME_ASSISTANT.md`](./HOME_ASSISTANT.md)
-- [`CHANGELOG.md`](./CHANGELOG.md)
+</div>

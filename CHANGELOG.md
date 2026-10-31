@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-31
+
+- README reorganizado em português para o GitHub, com badges, navegação,
+  tabelas e seis diagramas Mermaid de operação e integração.
+- Corrigidas referências antigas a BLE e reconexão de 10 segundos; documentados
+  layout LCD atual, espera de 10 minutos, portas separadas e limite real OTA.
+- Revisão documental; firmware e configuração de hardware não alterados.
+
+
 ## 2026-10-24
 
 - Rótulo `Umid:` substituído por ícone de gota no LCD e na prévia web.
